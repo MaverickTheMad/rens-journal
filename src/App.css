@@ -72,7 +72,7 @@
   justify-content: center;
   gap: 4px;
   padding: 10px 16px;
-  background: rgba(250, 246, 243, 0.92);
+  background: var(--tab-bar-bg, rgba(250, 246, 243, 0.92));
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--line-soft);
