@@ -5,26 +5,16 @@ import { PHASES, FLOW_LEVELS, computeCyclePhase, todayLocalISO, formatDateLong }
 // ============================================================
 // CYCLE RING
 // ============================================================
-// Visualizes one full cycle as a circular wheel.
-// - Phase arcs are proportional to their length (not fixed quarters)
-// - Each day is a tappable wedge
-// - Flow shows as a colored band on the outer edge
-// - Symptom counts show as inner dots
-// - Today is highlighted with a heavy ring + "Day N" label
-// ============================================================
 
 export default function CalendarTab({ periodStarts, onPeriodStartsChange, refreshKey }) {
-  // cycleOffset: 0 = current cycle, -1 = previous cycle, etc.
   const [cycleOffset, setCycleOffset] = useState(0)
   const [days, setDays]               = useState({})
   const [symptomCounts, setSymptomCounts] = useState({})
   const [selected, setSelected]       = useState(null)
   const [loading, setLoading]         = useState(true)
 
-  // ---- Compute current cycle window from period starts ----
   const cycle = useMemo(() => deriveCycle(periodStarts, cycleOffset), [periodStarts, cycleOffset])
 
-  // ---- Load day-level data and symptom counts for the visible cycle ----
   const load = useCallback(async () => {
     if (!cycle) { setLoading(false); return }
     setLoading(true)
@@ -53,7 +43,6 @@ export default function CalendarTab({ periodStarts, onPeriodStartsChange, refres
 
   useEffect(() => { load() }, [load, refreshKey])
 
-  // ---- Empty state ----
   if (!cycle) {
     return (
       <div className="card">
@@ -136,24 +125,33 @@ export default function CalendarTab({ periodStarts, onPeriodStartsChange, refres
 // ============================================================
 // CYCLE RING (SVG)
 // ============================================================
+// Layout (radii, inside → out):
+//   center text (Day N, date, phase)
+//   wedge inner edge       R_INNER  (95)
+//   wedge outer edge       R_OUTER  (145)
+//   gap                    (label band)
+//   phase label baseline   R_PHASE_LABEL (165)
+//   phase arc band         R_PHASE_ARC (175–183)
+// ============================================================
 function CycleRing({ cycle, periodStarts, days, symptomCounts, selected, onSelect }) {
-  // Geometry
-  const SIZE = 320
+  const SIZE = 380
   const CX = SIZE / 2
   const CY = SIZE / 2
-  const R_OUTER = 140      // outer edge of day wedges
-  const R_INNER = 90       // inner edge of day wedges
-  const R_FLOW  = 144      // outer flow ring (just outside wedges)
-  const R_SYMPTOM_DOT = 78 // inside the wedges, near the inner edge
-  const R_LABEL = 109      // day numbers (every 7th)
-  const R_PHASE_LABEL = 60 // phase names inside
+  const R_INNER = 95
+  const R_OUTER = 145
+  const R_FLOW_BAND = 147       // thin flow indicator just outside wedges
+  const R_FLOW_BAND_OUT = 151
+  const R_PHASE_LABEL = 162     // phase name baseline (outside ring)
+  const R_PHASE_ARC = 173       // phase color band
+  const R_PHASE_ARC_OUT = 181
+  const R_TODAY_RING = 100      // inner accent ring for "today"
+  const R_DAY_NUM = 120         // day number inside each wedge
+  const R_SYMPTOM_DOT = 105
+  const R_STAR = 138
 
   const today = todayLocalISO()
   const N = cycle.length
 
-  // Compute phase windows for THIS cycle length.
-  // Same rules as constants.computeCyclePhase but scaled to actual length.
-  // menstrual: days 1–5, follicular: 6–13, ovulation: 14–16, luteal: rest.
   const phaseSpans = [
     { key: 'menstrual',  startDay: 1,  endDay: Math.min(5, N) },
     { key: 'follicular', startDay: 6,  endDay: Math.min(13, N) },
@@ -161,11 +159,9 @@ function CycleRing({ cycle, periodStarts, days, symptomCounts, selected, onSelec
     { key: 'luteal',     startDay: 17, endDay: N },
   ].filter(p => p.startDay <= N && p.endDay >= p.startDay)
 
-  // Each day = wedge of 360/N degrees, starting at top (12 o'clock) going clockwise.
   const wedgeAngle = 360 / N
-  const startAngleDeg = -90 // top of circle
+  const startAngleDeg = -90 // 12 o'clock
 
-  // Build wedges
   const wedges = []
   for (let day = 1; day <= N; day++) {
     const a0 = startAngleDeg + (day - 1) * wedgeAngle
@@ -175,11 +171,10 @@ function CycleRing({ cycle, periodStarts, days, symptomCounts, selected, onSelec
     const isFuture = dateStr > today
     const dayData = days[dateStr]
     const phase = phaseForDay(day, phaseSpans)
-    const phaseColor = phase ? PHASES[phase].color : 'var(--line)'
 
     wedges.push({
       day, a0, a1, dateStr, isToday, isFuture, dayData,
-      phase, phaseColor,
+      phase,
       sCount: symptomCounts[dateStr] || 0,
       isPeriodStart: periodStarts.includes(dateStr),
       isSelected: selected === dateStr,
@@ -190,7 +185,6 @@ function CycleRing({ cycle, periodStarts, days, symptomCounts, selected, onSelec
     onSelect(selected === dateStr ? null : dateStr)
   }
 
-  // Find today's wedge for center label
   const todayWedge = wedges.find(w => w.isToday)
   const selectedWedge = wedges.find(w => w.dateStr === selected)
   const centerWedge = selectedWedge || todayWedge
@@ -198,116 +192,153 @@ function CycleRing({ cycle, periodStarts, days, symptomCounts, selected, onSelec
   return (
     <div className="ring-wrap">
       <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="cycle-ring" role="img" aria-label="Cycle wheel">
-        {/* Background ring (faint) */}
+        {/* Faint background ring under wedges */}
         <circle cx={CX} cy={CY} r={(R_OUTER + R_INNER) / 2} fill="none" stroke="var(--line-soft)" strokeWidth={R_OUTER - R_INNER} />
-
-        {/* Phase arcs — outermost, sit OUTSIDE the day wedges as a phase-band */}
-        {phaseSpans.map(span => {
-          const a0 = startAngleDeg + (span.startDay - 1) * wedgeAngle
-          const a1 = startAngleDeg + span.endDay * wedgeAngle
-          return (
-            <path
-              key={span.key}
-              d={arcBand(CX, CY, R_FLOW, R_FLOW + 8, a0, a1)}
-              fill={PHASES[span.key].color}
-              opacity={0.85}
-            />
-          )
-        })}
 
         {/* Day wedges */}
         {wedges.map(w => (
-          <g key={w.day} onClick={() => handleSelect(w.dateStr)} style={{ cursor: 'pointer' }}>
-            <path
-              d={arcBand(CX, CY, R_INNER, R_OUTER, w.a0, w.a1)}
-              fill={wedgeFill(w)}
-              stroke={w.isSelected ? 'var(--rose-deep)' : w.isToday ? 'var(--ink)' : 'var(--bg)'}
-              strokeWidth={w.isSelected ? 2 : w.isToday ? 1.5 : 0.5}
-            />
-
-            {/* Flow band on outer edge */}
-            {w.dayData?.flow && w.dayData.flow !== 'none' && (
-              <path
-                d={arcBand(CX, CY, R_OUTER + 1, R_OUTER + 5, w.a0, w.a1)}
-                fill={flowColor(w.dayData.flow)}
-              />
-            )}
-
-            {/* Symptom dot — inside the wedge */}
-            {w.sCount > 0 && !w.isFuture && (
-              (() => {
-                const mid = (w.a0 + w.a1) / 2
-                const { x, y } = polar(CX, CY, R_SYMPTOM_DOT, mid)
-                return <circle cx={x} cy={y} r={2.4} fill="var(--rose)" />
-              })()
-            )}
-
-            {/* Period start star */}
-            {w.isPeriodStart && (
-              (() => {
-                const mid = (w.a0 + w.a1) / 2
-                const { x, y } = polar(CX, CY, R_OUTER - 8, mid)
-                return (
-                  <text x={x} y={y + 3} textAnchor="middle" fontSize="9" fill="var(--rose-deep)" fontWeight="700">★</text>
-                )
-              })()
-            )}
-          </g>
+          <path
+            key={`w-${w.day}`}
+            d={arcBand(CX, CY, R_INNER, R_OUTER, w.a0, w.a1)}
+            fill={wedgeFill(w)}
+            stroke="var(--wedge-divider)"
+            strokeWidth={0.8}
+            style={{ cursor: 'pointer' }}
+            onClick={() => handleSelect(w.dateStr)}
+          />
         ))}
 
-        {/* Day-number labels every 7 days (and day 1) */}
-        {wedges.filter(w => w.day === 1 || w.day % 7 === 0).map(w => {
+        {/* Today highlight: a thin accent ring band just inside wedges */}
+        {todayWedge && (
+          <path
+            d={arcBand(CX, CY, R_TODAY_RING - 3, R_TODAY_RING, todayWedge.a0, todayWedge.a1)}
+            fill="var(--rose-deep)"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
+
+        {/* Selected highlight: thicker ring on inside edge */}
+        {selectedWedge && selectedWedge.dateStr !== today && (
+          <path
+            d={arcBand(CX, CY, R_TODAY_RING - 3, R_TODAY_RING, selectedWedge.a0, selectedWedge.a1)}
+            fill="var(--ink)"
+            opacity={0.7}
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
+
+        {/* Day numbers inside every wedge */}
+        {wedges.map(w => {
           const mid = (w.a0 + w.a1) / 2
-          const { x, y } = polar(CX, CY, R_LABEL, mid)
+          const { x, y } = polar(CX, CY, R_DAY_NUM, mid)
           return (
             <text
-              key={`lbl-${w.day}`}
+              key={`d-${w.day}`}
               x={x} y={y + 3}
               textAnchor="middle"
-              fontSize="9.5"
-              fill="var(--ink-muted)"
-              fontWeight="500"
-              style={{ pointerEvents: 'none' }}
+              fontSize={N <= 30 ? '10' : '9'}
+              fill={w.isFuture ? 'var(--ink-muted)' : w.isToday || w.isSelected ? 'var(--ink)' : 'var(--ink-soft)'}
+              fontWeight={w.isToday || w.isSelected ? '700' : '500'}
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
             >
               {w.day}
             </text>
           )
         })}
 
-        {/* Phase labels — placed at midpoint of each phase, inside the ring */}
-        {phaseSpans.map(span => {
-          const midDay = (span.startDay + span.endDay) / 2
-          const a = startAngleDeg + (midDay - 0.5) * wedgeAngle
-          const { x, y } = polar(CX, CY, R_PHASE_LABEL, a)
-          // Don't show label if phase is too short (< 2 days)
-          if (span.endDay - span.startDay < 1) return null
+        {/* Flow band on outer edge of wedge */}
+        {wedges.map(w => {
+          if (!w.dayData?.flow || w.dayData.flow === 'none') return null
+          return (
+            <path
+              key={`f-${w.day}`}
+              d={arcBand(CX, CY, R_FLOW_BAND, R_FLOW_BAND_OUT, w.a0, w.a1)}
+              fill={flowColor(w.dayData.flow)}
+              style={{ pointerEvents: 'none' }}
+            />
+          )
+        })}
+
+        {/* Symptom dot inside wedge */}
+        {wedges.map(w => {
+          if (w.sCount === 0 || w.isFuture) return null
+          const mid = (w.a0 + w.a1) / 2
+          const { x, y } = polar(CX, CY, R_SYMPTOM_DOT, mid)
+          return <circle key={`s-${w.day}`} cx={x} cy={y} r={2.2} fill="var(--rose)" style={{ pointerEvents: 'none' }} />
+        })}
+
+        {/* Period start star */}
+        {wedges.map(w => {
+          if (!w.isPeriodStart) return null
+          const mid = (w.a0 + w.a1) / 2
+          const { x, y } = polar(CX, CY, R_STAR, mid)
           return (
             <text
-              key={`phase-lbl-${span.key}`}
+              key={`star-${w.day}`}
               x={x} y={y + 3}
               textAnchor="middle"
               fontSize="10"
-              fill={PHASES[span.key].color}
-              fontWeight="600"
-              letterSpacing="0.04em"
+              fill="var(--rose-deep)"
+              fontWeight="700"
               style={{ pointerEvents: 'none' }}
+            >★</text>
+          )
+        })}
+
+        {/* Phase arcs — OUTSIDE the wedges */}
+        {phaseSpans.map(span => {
+          const a0 = startAngleDeg + (span.startDay - 1) * wedgeAngle
+          const a1 = startAngleDeg + span.endDay * wedgeAngle
+          return (
+            <path
+              key={`pa-${span.key}`}
+              d={arcBand(CX, CY, R_PHASE_ARC, R_PHASE_ARC_OUT, a0, a1)}
+              fill={phaseVarColor(span.key)}
+              opacity={0.9}
+              style={{ pointerEvents: 'none' }}
+            />
+          )
+        })}
+
+        {/* Phase labels — OUTSIDE the ring, follow each phase arc midpoint */}
+        {phaseSpans.map(span => {
+          if (span.endDay - span.startDay < 1) return null
+          const midDay = (span.startDay + span.endDay) / 2
+          const a = startAngleDeg + (midDay - 0.5) * wedgeAngle
+          const { x, y } = polar(CX, CY, R_PHASE_LABEL, a)
+          // Anchor adjusts based on which side of the ring it's on
+          const aMod = ((a % 360) + 360) % 360
+          let anchor = 'middle'
+          if (aMod > 280 || aMod < 80) anchor = 'middle'
+          else if (aMod < 180) anchor = 'start'
+          else anchor = 'end'
+          return (
+            <text
+              key={`pl-${span.key}`}
+              x={x} y={y + 3}
+              textAnchor={anchor}
+              fontSize="9.5"
+              fill={phaseVarColor(span.key)}
+              fontWeight="700"
+              letterSpacing="0.08em"
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
             >
               {PHASES[span.key].label.toUpperCase()}
             </text>
           )
         })}
 
-        {/* Center label */}
+        {/* Center: Day number + date + phase */}
         <g style={{ pointerEvents: 'none' }}>
           {centerWedge ? (
             <>
-              <text x={CX} y={CY - 6} textAnchor="middle" fontFamily="DM Serif Display" fontSize="32" fill="var(--ink)">
+              <text x={CX} y={CY - 4} textAnchor="middle" fontFamily="DM Serif Display" fontSize="44" fill="var(--ink)">
                 {centerWedge.day}
               </text>
-              <text x={CX} y={CY + 12} textAnchor="middle" fontSize="10" fill="var(--ink-muted)" letterSpacing="0.06em">
-                {centerWedge.isToday ? 'TODAY' : fmtShort(new Date(centerWedge.dateStr + 'T00:00:00'))}
+              <text x={CX} y={CY + 18} textAnchor="middle" fontSize="11" fill="var(--ink-soft)" letterSpacing="0.05em">
+                {centerWedge.isToday ? 'TODAY · ' : ''}{fmtShort(new Date(centerWedge.dateStr + 'T00:00:00'))}
               </text>
-              <text x={CX} y={CY + 26} textAnchor="middle" fontSize="9" fill="var(--ink-muted)" letterSpacing="0.06em">
+              <text x={CX} y={CY + 34} textAnchor="middle" fontSize="10" fill={centerWedge.phase ? phaseVarColor(centerWedge.phase) : 'var(--ink-muted)'} letterSpacing="0.1em" fontWeight="600">
                 {centerWedge.phase ? PHASES[centerWedge.phase].label.toUpperCase() : ''}
               </text>
             </>
@@ -327,12 +358,12 @@ function CycleRing({ cycle, periodStarts, days, symptomCounts, selected, onSelec
         }
         .cycle-ring {
           width: 100%;
-          max-width: 360px;
+          max-width: 380px;
           height: auto;
           display: block;
         }
         .cycle-ring path { transition: opacity 0.15s; }
-        .cycle-ring g:active path { opacity: 0.7; }
+        .cycle-ring path:active { opacity: 0.75; }
       `}</style>
     </div>
   )
@@ -348,7 +379,7 @@ function CycleLegend() {
         <span className="legend-cap">Phases</span>
         {Object.entries(PHASES).map(([k, p]) => (
           <span key={k} className="legend-item">
-            <span className="legend-swatch" style={{ background: p.color }} />
+            <span className="legend-swatch" style={{ background: `var(--phase-${k})` }} />
             {p.label}
           </span>
         ))}
@@ -461,7 +492,7 @@ function SelectedDayCard({ date, periodStarts, onClose, onPeriodStartsChange }) 
         <div>
           <h3 className="card-title" style={{ fontSize: 20 }}>{formatDateLong(date)}</h3>
           {phase && (
-            <span className="phase-pill-sm" style={{ background: PHASES[phase].color }}>
+            <span className="phase-pill-sm" style={{ background: `var(--phase-${phase})` }}>
               {PHASES[phase].label}
             </span>
           )}
@@ -613,17 +644,11 @@ function PeriodHistoryCard({ periodStarts, onChange }) {
 // ============================================================
 // CYCLE DERIVATION
 // ============================================================
-// Given periodStarts and an offset (0 = current, -1 = previous):
-//   returns { start, end, startISO, endISO, length, estimated }
-// "Current cycle" = the one containing today.
-// "Length" = gap to next start, or avg of recent cycles, or 28.
-// ============================================================
 function deriveCycle(periodStarts, offset) {
   if (!periodStarts || periodStarts.length === 0) return null
   const sorted = [...periodStarts].sort()
   const today = todayLocalISO()
 
-  // Estimate length from recent gaps (last 3)
   let estLength = 28
   if (sorted.length >= 2) {
     const gaps = []
@@ -637,8 +662,6 @@ function deriveCycle(periodStarts, offset) {
     if (estLength < 21 || estLength > 40) estLength = 28
   }
 
-  // Find index of the current cycle's start.
-  // Current = the most recent start <= today.
   let currentIdx = -1
   for (let i = 0; i < sorted.length; i++) {
     if (sorted[i] <= today) currentIdx = i
@@ -650,7 +673,6 @@ function deriveCycle(periodStarts, offset) {
   if (targetIdx < 0 || targetIdx >= sorted.length) return null
 
   const startISO = sorted[targetIdx]
-  // End ISO is day before the NEXT start (if exists), else start + estLength - 1
   let endISO, length, estimated = false
   if (sorted[targetIdx + 1]) {
     endISO = addDaysISO(sorted[targetIdx + 1], -1)
@@ -669,14 +691,13 @@ function deriveCycle(periodStarts, offset) {
 }
 
 // ============================================================
-// HELPERS: SVG geometry + date utilities
+// HELPERS
 // ============================================================
 function polar(cx, cy, r, angleDeg) {
   const a = (angleDeg * Math.PI) / 180
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }
 }
 
-// Annular sector from rInner to rOuter, between angles a0 and a1 (degrees).
 function arcBand(cx, cy, rInner, rOuter, a0, a1) {
   const p1 = polar(cx, cy, rOuter, a0)
   const p2 = polar(cx, cy, rOuter, a1)
@@ -693,18 +714,16 @@ function arcBand(cx, cy, rInner, rOuter, a0, a1) {
 }
 
 function wedgeFill(w) {
-  if (w.isFuture) return 'var(--bg-sunken)'
-  const baseTint = {
-    menstrual:  '#fceee9',
-    follicular: '#f9f0dc',
-    ovulation:  '#eef1e5',
-    luteal:     '#ece5ea',
-  }
+  if (w.isFuture) return 'var(--wedge-future)'
+  if (w.dayData?.flow && w.dayData.flow !== 'none') return 'var(--wedge-period)'
   if (!w.phase) return 'var(--bg-elevated)'
-  if (w.dayData?.flow && w.dayData.flow !== 'none') {
-    return '#fbe3da'
+  const map = {
+    menstrual:  'var(--wedge-menstrual)',
+    follicular: 'var(--wedge-follicular)',
+    ovulation:  'var(--wedge-ovulation)',
+    luteal:     'var(--wedge-luteal)',
   }
-  return baseTint[w.phase] || 'var(--bg-elevated)'
+  return map[w.phase] || 'var(--bg-elevated)'
 }
 
 function flowColor(flow) {
@@ -744,4 +763,13 @@ function daysBetween(a, b) {
 function fmtShort(d) {
   if (typeof d === 'string') d = new Date(d + 'T00:00:00')
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+// Maps phase keys to CSS vars (which adapt to dark mode). We keep PHASES[key].label
+// from constants.js for the human-readable name, but reroute the color so it shifts
+// with the theme. The legend and other UI bits also fall back to PHASES[key].color
+// directly — those are still consistent because the legend swatches sit on
+// the card surface where the lighter hex literals look fine in both modes.
+function phaseVarColor(key) {
+  return `var(--phase-${key})`
 }
