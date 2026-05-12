@@ -1,5 +1,5 @@
 :root {
-  /* Palette — warm paper, dusty rose, deep ink */
+  /* ===== LIGHT MODE (default) ===== */
   --bg: #faf6f3;
   --bg-elevated: #ffffff;
   --bg-sunken: #f3ece6;
@@ -18,11 +18,26 @@
   --moss: #6b7a5a;
   --gold: #b8945a;
 
+  /* Phase colors (used by JS — keep available in both modes) */
+  --phase-menstrual:  #c0685a;
+  --phase-follicular: #b8945a;
+  --phase-ovulation:  #6b7a5a;
+  --phase-luteal:     #6b4a55;
+
   /* Flow colors */
   --flow-spotting: #e9c4bb;
   --flow-light: #d99488;
   --flow-medium: #c0685a;
   --flow-heavy: #8e3d31;
+
+  /* Cycle ring wedge tints */
+  --wedge-menstrual:  #fceee9;
+  --wedge-follicular: #f9f0dc;
+  --wedge-ovulation:  #eef1e5;
+  --wedge-luteal:     #ece5ea;
+  --wedge-period:     #fbe3da;
+  --wedge-future:     #f3ece6;
+  --wedge-divider:    #ffffff;
 
   --radius-sm: 8px;
   --radius: 14px;
@@ -35,6 +50,94 @@
 
   --serif: 'DM Serif Display', Georgia, serif;
   --sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ===== DARK MODE — auto via OS preference ===== */
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light) {
+    --bg: #18141a;
+    --bg-elevated: #221d24;
+    --bg-sunken: #2a2329;
+    --ink: #f2ebe5;
+    --ink-soft: #c5b8ae;
+    --ink-muted: #897a72;
+    --line: #3a3138;
+    --line-soft: #2e272d;
+
+    --rose: #d99e91;
+    --rose-soft: #e7b8ac;
+    --rose-bg: #3a2620;
+    --rose-deep: #f0c1b5;
+
+    --plum: #9a7785;
+    --moss: #94a380;
+    --gold: #d4ad7a;
+
+    --phase-menstrual:  #d97e6c;
+    --phase-follicular: #d4a86c;
+    --phase-ovulation:  #94a380;
+    --phase-luteal:     #9a7785;
+
+    --flow-spotting: #6b4137;
+    --flow-light: #a35a4c;
+    --flow-medium: #c47767;
+    --flow-heavy: #db8a78;
+
+    --wedge-menstrual:  #2d2220;
+    --wedge-follicular: #2c2620;
+    --wedge-ovulation:  #232723;
+    --wedge-luteal:     #28232a;
+    --wedge-period:     #3d2823;
+    --wedge-future:     #1f1a20;
+    --wedge-divider:    #18141a;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.2);
+    --shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ===== Manual dark override (for future toggle) ===== */
+:root.theme-dark {
+  --bg: #18141a;
+  --bg-elevated: #221d24;
+  --bg-sunken: #2a2329;
+  --ink: #f2ebe5;
+  --ink-soft: #c5b8ae;
+  --ink-muted: #897a72;
+  --line: #3a3138;
+  --line-soft: #2e272d;
+
+  --rose: #d99e91;
+  --rose-soft: #e7b8ac;
+  --rose-bg: #3a2620;
+  --rose-deep: #f0c1b5;
+
+  --plum: #9a7785;
+  --moss: #94a380;
+  --gold: #d4ad7a;
+
+  --phase-menstrual:  #d97e6c;
+  --phase-follicular: #d4a86c;
+  --phase-ovulation:  #94a380;
+  --phase-luteal:     #9a7785;
+
+  --flow-spotting: #6b4137;
+  --flow-light: #a35a4c;
+  --flow-medium: #c47767;
+  --flow-heavy: #db8a78;
+
+  --wedge-menstrual:  #2d2220;
+  --wedge-follicular: #2c2620;
+  --wedge-ovulation:  #232723;
+  --wedge-luteal:     #28232a;
+  --wedge-period:     #3d2823;
+  --wedge-future:     #1f1a20;
+  --wedge-divider:    #18141a;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.2);
+  --shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
 * {
@@ -62,6 +165,14 @@ body {
   background-attachment: fixed;
 }
 
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(ellipse at top, rgba(217, 168, 158, 0.06), transparent 60%),
+      var(--bg);
+  }
+}
+
 button {
   font-family: inherit;
   font-size: inherit;
@@ -78,6 +189,22 @@ input, select, textarea {
   color: inherit;
 }
 
+/* Date/time picker icons in dark mode */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: var(--input-icon-filter, none);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light) input[type="date"]::-webkit-calendar-picker-indicator,
+  :root:not(.theme-light) input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+  }
+}
+:root.theme-dark input[type="date"]::-webkit-calendar-picker-indicator,
+:root.theme-dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+}
+
 h1, h2, h3, h4 {
   font-family: var(--serif);
   font-weight: 400;
@@ -90,12 +217,10 @@ h1, h2, h3, h4 {
   color: var(--rose-deep);
 }
 
-/* iOS safe area */
 .safe-bottom {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
-/* Subtle slide-up on mount */
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
