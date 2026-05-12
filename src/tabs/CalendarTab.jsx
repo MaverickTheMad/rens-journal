@@ -1,24 +1,35 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../supabase.js'
 import { PHASES, FLOW_LEVELS, computeCyclePhase, todayLocalISO, formatDateLong } from '../constants.js'
 
+// ============================================================
+// CYCLE RING
+// ============================================================
+// Visualizes one full cycle as a circular wheel.
+// - Phase arcs are proportional to their length (not fixed quarters)
+// - Each day is a tappable wedge
+// - Flow shows as a colored band on the outer edge
+// - Symptom counts show as inner dots
+// - Today is highlighted with a heavy ring + "Day N" label
+// ============================================================
+
 export default function CalendarTab({ periodStarts, onPeriodStartsChange, refreshKey }) {
-  const [monthOffset, setMonthOffset] = useState(0)
-  const [days, setDays] = useState([])
+  // cycleOffset: 0 = current cycle, -1 = previous cycle, etc.
+  const [cycleOffset, setCycleOffset] = useState(0)
+  const [days, setDays]               = useState({})
   const [symptomCounts, setSymptomCounts] = useState({})
-  const [selected, setSelected] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [selected, setSelected]       = useState(null)
+  const [loading, setLoading]         = useState(true)
 
-  const now = new Date()
-  const viewMonth = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
-  const monthLabel = viewMonth.toLocaleDateString([], { month: 'long', year: 'numeric' })
+  // ---- Compute current cycle window from period starts ----
+  const cycle = useMemo(() => deriveCycle(periodStarts, cycleOffset), [periodStarts, cycleOffset])
 
+  // ---- Load day-level data and symptom counts for the visible cycle ----
   const load = useCallback(async () => {
+    if (!cycle) { setLoading(false); return }
     setLoading(true)
-    const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1)
-    const last = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0)
-    const firstStr = toISO(first)
-    const lastStr = toISO(last)
+    const firstStr = cycle.startISO
+    const lastStr  = cycle.endISO
 
     const [dDays, dSym] = await Promise.all([
       supabase.from('cycle_days').select('date,flow,cycle_phase,cycle_phase_override').gte('date', firstStr).lte('date', lastStr),
@@ -38,92 +49,57 @@ export default function CalendarTab({ periodStarts, onPeriodStartsChange, refres
     }
     setSymptomCounts(sCounts)
     setLoading(false)
-  }, [monthOffset])
+  }, [cycle])
 
   useEffect(() => { load() }, [load, refreshKey])
 
-  const cells = buildMonthCells(viewMonth)
-  const today = todayLocalISO()
+  // ---- Empty state ----
+  if (!cycle) {
+    return (
+      <div className="card">
+        <div className="empty">
+          Add at least one period start date to see your cycle wheel.
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="calendar-tab stack">
       <div className="card">
-        <div className="month-nav">
-          <button className="btn btn-ghost btn-sm" onClick={() => setMonthOffset(o => o - 1)}>‹</button>
-          <h3 className="card-title month-title">{monthLabel}</h3>
-          <button className="btn btn-ghost btn-sm" onClick={() => setMonthOffset(o => o + 1)} disabled={monthOffset >= 0}>›</button>
-        </div>
-
-        <div className="weekdays">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-            <div key={i} className="weekday">{d}</div>
-          ))}
-        </div>
-
-        <div className="month-grid">
-          {cells.map((cell, idx) => {
-            if (!cell) return <div key={idx} className="cell cell-empty" />
-            const dStr = toISO(cell)
-            const dayData = days[dStr]
-            const phase = dayData?.cycle_phase || computeCyclePhase(dStr, periodStarts)
-            const flow = dayData?.flow || 'none'
-            const flowMeta = FLOW_LEVELS.find(f => f.value === flow)
-            const sCount = symptomCounts[dStr] || 0
-            const isPeriodStart = periodStarts.includes(dStr)
-            const isToday = dStr === today
-            const isFuture = dStr > today
-            const isSelected = selected === dStr
-
-            return (
-              <button
-                key={idx}
-                className={`cell ${isToday ? 'cell-today' : ''} ${isSelected ? 'cell-selected' : ''} ${isFuture ? 'cell-future' : ''}`}
-                onClick={() => setSelected(isSelected ? null : dStr)}
-              >
-                {phase && (
-                  <span className="cell-phase-ring" style={{ borderColor: PHASES[phase].color }} />
-                )}
-                {flow !== 'none' && (
-                  <span className="cell-flow" style={{ background: flowMeta?.color }} />
-                )}
-                <span className="cell-num">{cell.getDate()}</span>
-                {isPeriodStart && <span className="cell-star">★</span>}
-                {sCount > 0 && (
-                  <span className="cell-symptom-dots">
-                    {Array.from({ length: Math.min(sCount, 3) }).map((_, i) => (
-                      <span key={i} className="cell-symptom-dot" />
-                    ))}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="legend">
-          <div className="legend-group">
-            <span className="legend-label">Flow:</span>
-            {FLOW_LEVELS.filter(f => f.value !== 'none').map(f => (
-              <span key={f.value} className="legend-item">
-                <span className="legend-dot" style={{ background: f.color }} />
-                {f.label}
-              </span>
-            ))}
+        <div className="cycle-nav">
+          <button className="btn btn-ghost btn-sm" onClick={() => setCycleOffset(o => o - 1)} aria-label="Previous cycle">‹</button>
+          <div className="cycle-nav-center">
+            <h3 className="card-title cycle-title">
+              {cycleOffset === 0 ? 'This cycle' : cycleOffset === -1 ? 'Last cycle' : `${Math.abs(cycleOffset)} cycles ago`}
+            </h3>
+            <div className="cycle-range">
+              {fmtShort(cycle.start)} – {fmtShort(cycle.end)} · {cycle.length} days
+              {cycle.estimated && <span className="muted"> (est.)</span>}
+            </div>
           </div>
-          <div className="legend-group">
-            <span className="legend-label">Phase:</span>
-            {Object.entries(PHASES).map(([k, p]) => (
-              <span key={k} className="legend-item">
-                <span className="legend-ring" style={{ borderColor: p.color }} />
-                {p.label}
-              </span>
-            ))}
-          </div>
-          <div className="legend-group">
-            <span className="legend-item"><span className="cell-star" style={{ position: 'static' }}>★</span> Period start</span>
-            <span className="legend-item"><span className="legend-dot" style={{ background: 'var(--rose)' }} /> Symptom logged</span>
-          </div>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setCycleOffset(o => o + 1)}
+            disabled={cycleOffset >= 0}
+            aria-label="Next cycle"
+          >›</button>
         </div>
+
+        {loading ? (
+          <div className="empty">Loading…</div>
+        ) : (
+          <CycleRing
+            cycle={cycle}
+            periodStarts={periodStarts}
+            days={days}
+            symptomCounts={symptomCounts}
+            selected={selected}
+            onSelect={setSelected}
+          />
+        )}
+
+        <CycleLegend />
       </div>
 
       {selected && (
@@ -138,129 +114,305 @@ export default function CalendarTab({ periodStarts, onPeriodStartsChange, refres
       <PeriodHistoryCard periodStarts={periodStarts} onChange={() => { onPeriodStartsChange(); load() }} />
 
       <style>{`
-        .month-nav {
+        .cycle-nav {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 14px;
+          margin-bottom: 16px;
         }
-        .month-title { font-size: 22px; }
-        .weekdays {
-          display: grid;
-          grid-template-columns: repeat(7, 1fr);
-          gap: 4px;
-          margin-bottom: 6px;
-        }
-        .weekday {
-          text-align: center;
-          font-size: 11px;
-          color: var(--ink-muted);
-          letter-spacing: 0.05em;
-          font-weight: 500;
-        }
-        .month-grid {
-          display: grid;
-          grid-template-columns: repeat(7, 1fr);
-          gap: 4px;
-        }
-        .cell {
-          aspect-ratio: 1;
-          position: relative;
-          border-radius: var(--radius-sm);
-          background: var(--bg-elevated);
-          border: 1px solid transparent;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 14px;
-          color: var(--ink);
-          transition: all 0.15s;
-          min-height: 38px;
-        }
-        .cell:active { transform: scale(0.95); }
-        .cell-empty { background: transparent; pointer-events: none; }
-        .cell-today { background: var(--rose-bg); font-weight: 600; }
-        .cell-selected { border-color: var(--rose); box-shadow: 0 0 0 1px var(--rose); }
-        .cell-future { color: var(--ink-muted); opacity: 0.55; }
-        .cell-num { position: relative; z-index: 2; }
-        .cell-phase-ring {
-          position: absolute;
-          inset: 3px;
-          border-radius: var(--radius-sm);
-          border: 1.5px solid;
-          pointer-events: none;
-        }
-        .cell-flow {
-          position: absolute;
-          bottom: 4px;
-          left: 4px;
-          right: 4px;
-          height: 3px;
-          border-radius: var(--radius-pill);
-        }
-        .cell-star {
-          position: absolute;
-          top: 1px;
-          right: 3px;
-          font-size: 10px;
-          color: var(--rose-deep);
-        }
-        .cell-symptom-dots {
-          position: absolute;
-          bottom: 9px;
-          left: 0; right: 0;
-          display: flex;
-          justify-content: center;
-          gap: 2px;
-        }
-        .cell-symptom-dot {
-          width: 3px; height: 3px;
-          background: var(--rose);
-          border-radius: 50%;
-        }
-        .legend {
-          margin-top: 16px;
-          padding-top: 14px;
-          border-top: 1px solid var(--line-soft);
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .legend-group {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 10px;
+        .cycle-nav-center { text-align: center; flex: 1; }
+        .cycle-title { font-size: 22px; }
+        .cycle-range {
+          margin-top: 3px;
           font-size: 12px;
-          color: var(--ink-soft);
-        }
-        .legend-label {
           color: var(--ink-muted);
-          font-weight: 500;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          font-size: 10px;
-        }
-        .legend-item {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-        }
-        .legend-dot {
-          width: 10px; height: 4px;
-          border-radius: var(--radius-pill);
-        }
-        .legend-ring {
-          width: 10px; height: 10px;
-          border-radius: 3px;
-          border: 1.5px solid;
+          letter-spacing: 0.03em;
         }
       `}</style>
     </div>
   )
 }
 
-// ===== SELECTED DAY CARD =====
+// ============================================================
+// CYCLE RING (SVG)
+// ============================================================
+function CycleRing({ cycle, periodStarts, days, symptomCounts, selected, onSelect }) {
+  // Geometry
+  const SIZE = 320
+  const CX = SIZE / 2
+  const CY = SIZE / 2
+  const R_OUTER = 140      // outer edge of day wedges
+  const R_INNER = 90       // inner edge of day wedges
+  const R_FLOW  = 144      // outer flow ring (just outside wedges)
+  const R_SYMPTOM_DOT = 78 // inside the wedges, near the inner edge
+  const R_LABEL = 109      // day numbers (every 7th)
+  const R_PHASE_LABEL = 60 // phase names inside
+
+  const today = todayLocalISO()
+  const N = cycle.length
+
+  // Compute phase windows for THIS cycle length.
+  // Same rules as constants.computeCyclePhase but scaled to actual length.
+  // menstrual: days 1–5, follicular: 6–13, ovulation: 14–16, luteal: rest.
+  const phaseSpans = [
+    { key: 'menstrual',  startDay: 1,  endDay: Math.min(5, N) },
+    { key: 'follicular', startDay: 6,  endDay: Math.min(13, N) },
+    { key: 'ovulation',  startDay: 14, endDay: Math.min(16, N) },
+    { key: 'luteal',     startDay: 17, endDay: N },
+  ].filter(p => p.startDay <= N && p.endDay >= p.startDay)
+
+  // Each day = wedge of 360/N degrees, starting at top (12 o'clock) going clockwise.
+  const wedgeAngle = 360 / N
+  const startAngleDeg = -90 // top of circle
+
+  // Build wedges
+  const wedges = []
+  for (let day = 1; day <= N; day++) {
+    const a0 = startAngleDeg + (day - 1) * wedgeAngle
+    const a1 = startAngleDeg + day * wedgeAngle
+    const dateStr = addDaysISO(cycle.startISO, day - 1)
+    const isToday = dateStr === today
+    const isFuture = dateStr > today
+    const dayData = days[dateStr]
+    const phase = phaseForDay(day, phaseSpans)
+    const phaseColor = phase ? PHASES[phase].color : 'var(--line)'
+
+    wedges.push({
+      day, a0, a1, dateStr, isToday, isFuture, dayData,
+      phase, phaseColor,
+      sCount: symptomCounts[dateStr] || 0,
+      isPeriodStart: periodStarts.includes(dateStr),
+      isSelected: selected === dateStr,
+    })
+  }
+
+  const handleSelect = (dateStr) => {
+    onSelect(selected === dateStr ? null : dateStr)
+  }
+
+  // Find today's wedge for center label
+  const todayWedge = wedges.find(w => w.isToday)
+  const selectedWedge = wedges.find(w => w.dateStr === selected)
+  const centerWedge = selectedWedge || todayWedge
+
+  return (
+    <div className="ring-wrap">
+      <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="cycle-ring" role="img" aria-label="Cycle wheel">
+        {/* Background ring (faint) */}
+        <circle cx={CX} cy={CY} r={(R_OUTER + R_INNER) / 2} fill="none" stroke="var(--line-soft)" strokeWidth={R_OUTER - R_INNER} />
+
+        {/* Phase arcs — outermost, sit OUTSIDE the day wedges as a phase-band */}
+        {phaseSpans.map(span => {
+          const a0 = startAngleDeg + (span.startDay - 1) * wedgeAngle
+          const a1 = startAngleDeg + span.endDay * wedgeAngle
+          return (
+            <path
+              key={span.key}
+              d={arcBand(CX, CY, R_FLOW, R_FLOW + 8, a0, a1)}
+              fill={PHASES[span.key].color}
+              opacity={0.85}
+            />
+          )
+        })}
+
+        {/* Day wedges */}
+        {wedges.map(w => (
+          <g key={w.day} onClick={() => handleSelect(w.dateStr)} style={{ cursor: 'pointer' }}>
+            <path
+              d={arcBand(CX, CY, R_INNER, R_OUTER, w.a0, w.a1)}
+              fill={wedgeFill(w)}
+              stroke={w.isSelected ? 'var(--rose-deep)' : w.isToday ? 'var(--ink)' : 'var(--bg)'}
+              strokeWidth={w.isSelected ? 2 : w.isToday ? 1.5 : 0.5}
+            />
+
+            {/* Flow band on outer edge */}
+            {w.dayData?.flow && w.dayData.flow !== 'none' && (
+              <path
+                d={arcBand(CX, CY, R_OUTER + 1, R_OUTER + 5, w.a0, w.a1)}
+                fill={flowColor(w.dayData.flow)}
+              />
+            )}
+
+            {/* Symptom dot — inside the wedge */}
+            {w.sCount > 0 && !w.isFuture && (
+              (() => {
+                const mid = (w.a0 + w.a1) / 2
+                const { x, y } = polar(CX, CY, R_SYMPTOM_DOT, mid)
+                return <circle cx={x} cy={y} r={2.4} fill="var(--rose)" />
+              })()
+            )}
+
+            {/* Period start star */}
+            {w.isPeriodStart && (
+              (() => {
+                const mid = (w.a0 + w.a1) / 2
+                const { x, y } = polar(CX, CY, R_OUTER - 8, mid)
+                return (
+                  <text x={x} y={y + 3} textAnchor="middle" fontSize="9" fill="var(--rose-deep)" fontWeight="700">★</text>
+                )
+              })()
+            )}
+          </g>
+        ))}
+
+        {/* Day-number labels every 7 days (and day 1) */}
+        {wedges.filter(w => w.day === 1 || w.day % 7 === 0).map(w => {
+          const mid = (w.a0 + w.a1) / 2
+          const { x, y } = polar(CX, CY, R_LABEL, mid)
+          return (
+            <text
+              key={`lbl-${w.day}`}
+              x={x} y={y + 3}
+              textAnchor="middle"
+              fontSize="9.5"
+              fill="var(--ink-muted)"
+              fontWeight="500"
+              style={{ pointerEvents: 'none' }}
+            >
+              {w.day}
+            </text>
+          )
+        })}
+
+        {/* Phase labels — placed at midpoint of each phase, inside the ring */}
+        {phaseSpans.map(span => {
+          const midDay = (span.startDay + span.endDay) / 2
+          const a = startAngleDeg + (midDay - 0.5) * wedgeAngle
+          const { x, y } = polar(CX, CY, R_PHASE_LABEL, a)
+          // Don't show label if phase is too short (< 2 days)
+          if (span.endDay - span.startDay < 1) return null
+          return (
+            <text
+              key={`phase-lbl-${span.key}`}
+              x={x} y={y + 3}
+              textAnchor="middle"
+              fontSize="10"
+              fill={PHASES[span.key].color}
+              fontWeight="600"
+              letterSpacing="0.04em"
+              style={{ pointerEvents: 'none' }}
+            >
+              {PHASES[span.key].label.toUpperCase()}
+            </text>
+          )
+        })}
+
+        {/* Center label */}
+        <g style={{ pointerEvents: 'none' }}>
+          {centerWedge ? (
+            <>
+              <text x={CX} y={CY - 6} textAnchor="middle" fontFamily="DM Serif Display" fontSize="32" fill="var(--ink)">
+                {centerWedge.day}
+              </text>
+              <text x={CX} y={CY + 12} textAnchor="middle" fontSize="10" fill="var(--ink-muted)" letterSpacing="0.06em">
+                {centerWedge.isToday ? 'TODAY' : fmtShort(new Date(centerWedge.dateStr + 'T00:00:00'))}
+              </text>
+              <text x={CX} y={CY + 26} textAnchor="middle" fontSize="9" fill="var(--ink-muted)" letterSpacing="0.06em">
+                {centerWedge.phase ? PHASES[centerWedge.phase].label.toUpperCase() : ''}
+              </text>
+            </>
+          ) : (
+            <text x={CX} y={CY + 4} textAnchor="middle" fontFamily="DM Serif Display" fontSize="20" fill="var(--ink-muted)">
+              Day —
+            </text>
+          )}
+        </g>
+      </svg>
+
+      <style>{`
+        .ring-wrap {
+          display: grid;
+          place-items: center;
+          padding: 8px 0 4px;
+        }
+        .cycle-ring {
+          width: 100%;
+          max-width: 360px;
+          height: auto;
+          display: block;
+        }
+        .cycle-ring path { transition: opacity 0.15s; }
+        .cycle-ring g:active path { opacity: 0.7; }
+      `}</style>
+    </div>
+  )
+}
+
+// ============================================================
+// LEGEND
+// ============================================================
+function CycleLegend() {
+  return (
+    <div className="cycle-legend">
+      <div className="legend-row">
+        <span className="legend-cap">Phases</span>
+        {Object.entries(PHASES).map(([k, p]) => (
+          <span key={k} className="legend-item">
+            <span className="legend-swatch" style={{ background: p.color }} />
+            {p.label}
+          </span>
+        ))}
+      </div>
+      <div className="legend-row">
+        <span className="legend-cap">Flow</span>
+        {FLOW_LEVELS.filter(f => f.value !== 'none').map(f => (
+          <span key={f.value} className="legend-item">
+            <span className="legend-bar" style={{ background: f.color }} />
+            {f.label}
+          </span>
+        ))}
+      </div>
+      <div className="legend-row">
+        <span className="legend-item"><span className="legend-dot" style={{ background: 'var(--rose)' }} /> Symptom logged</span>
+        <span className="legend-item"><span style={{ color: 'var(--rose-deep)', fontWeight: 700 }}>★</span> Period start</span>
+      </div>
+
+      <style>{`
+        .cycle-legend {
+          margin-top: 14px;
+          padding-top: 14px;
+          border-top: 1px solid var(--line-soft);
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .legend-row {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
+          font-size: 12px;
+          color: var(--ink-soft);
+        }
+        .legend-cap {
+          font-size: 10px;
+          color: var(--ink-muted);
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          font-weight: 600;
+          min-width: 50px;
+        }
+        .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+        .legend-swatch {
+          width: 10px; height: 10px;
+          border-radius: 3px;
+        }
+        .legend-bar {
+          width: 12px; height: 4px;
+          border-radius: 999px;
+        }
+        .legend-dot {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// ============================================================
+// SELECTED DAY CARD
+// ============================================================
 function SelectedDayCard({ date, periodStarts, onClose, onPeriodStartsChange }) {
   const [day, setDay] = useState(null)
   const [events, setEvents] = useState({ symptoms: [], foods: [], moods: [], waters: [], exercises: [] })
@@ -392,7 +544,9 @@ function SelectedDayCard({ date, periodStarts, onClose, onPeriodStartsChange }) 
   )
 }
 
-// ===== PERIOD HISTORY =====
+// ============================================================
+// PERIOD HISTORY
+// ============================================================
 function PeriodHistoryCard({ periodStarts, onChange }) {
   const [open, setOpen] = useState(false)
   const [newDate, setNewDate] = useState('')
@@ -456,7 +610,120 @@ function PeriodHistoryCard({ periodStarts, onChange }) {
   )
 }
 
-// ===== UTILITIES =====
+// ============================================================
+// CYCLE DERIVATION
+// ============================================================
+// Given periodStarts and an offset (0 = current, -1 = previous):
+//   returns { start, end, startISO, endISO, length, estimated }
+// "Current cycle" = the one containing today.
+// "Length" = gap to next start, or avg of recent cycles, or 28.
+// ============================================================
+function deriveCycle(periodStarts, offset) {
+  if (!periodStarts || periodStarts.length === 0) return null
+  const sorted = [...periodStarts].sort()
+  const today = todayLocalISO()
+
+  // Estimate length from recent gaps (last 3)
+  let estLength = 28
+  if (sorted.length >= 2) {
+    const gaps = []
+    for (let i = 1; i < sorted.length; i++) {
+      const a = new Date(sorted[i - 1] + 'T00:00:00')
+      const b = new Date(sorted[i] + 'T00:00:00')
+      gaps.push(Math.round((b - a) / 86400_000))
+    }
+    const recent = gaps.slice(-3)
+    estLength = Math.round(recent.reduce((s, g) => s + g, 0) / recent.length)
+    if (estLength < 21 || estLength > 40) estLength = 28
+  }
+
+  // Find index of the current cycle's start.
+  // Current = the most recent start <= today.
+  let currentIdx = -1
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i] <= today) currentIdx = i
+    else break
+  }
+  if (currentIdx < 0) return null
+
+  const targetIdx = currentIdx + offset
+  if (targetIdx < 0 || targetIdx >= sorted.length) return null
+
+  const startISO = sorted[targetIdx]
+  // End ISO is day before the NEXT start (if exists), else start + estLength - 1
+  let endISO, length, estimated = false
+  if (sorted[targetIdx + 1]) {
+    endISO = addDaysISO(sorted[targetIdx + 1], -1)
+    length = daysBetween(startISO, endISO) + 1
+  } else {
+    length = estLength
+    endISO = addDaysISO(startISO, length - 1)
+    estimated = true
+  }
+
+  return {
+    start: new Date(startISO + 'T00:00:00'),
+    end: new Date(endISO + 'T00:00:00'),
+    startISO, endISO, length, estimated,
+  }
+}
+
+// ============================================================
+// HELPERS: SVG geometry + date utilities
+// ============================================================
+function polar(cx, cy, r, angleDeg) {
+  const a = (angleDeg * Math.PI) / 180
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }
+}
+
+// Annular sector from rInner to rOuter, between angles a0 and a1 (degrees).
+function arcBand(cx, cy, rInner, rOuter, a0, a1) {
+  const p1 = polar(cx, cy, rOuter, a0)
+  const p2 = polar(cx, cy, rOuter, a1)
+  const p3 = polar(cx, cy, rInner, a1)
+  const p4 = polar(cx, cy, rInner, a0)
+  const large = a1 - a0 > 180 ? 1 : 0
+  return [
+    `M ${p1.x} ${p1.y}`,
+    `A ${rOuter} ${rOuter} 0 ${large} 1 ${p2.x} ${p2.y}`,
+    `L ${p3.x} ${p3.y}`,
+    `A ${rInner} ${rInner} 0 ${large} 0 ${p4.x} ${p4.y}`,
+    'Z',
+  ].join(' ')
+}
+
+function wedgeFill(w) {
+  if (w.isFuture) return 'var(--bg-sunken)'
+  const baseTint = {
+    menstrual:  '#fceee9',
+    follicular: '#f9f0dc',
+    ovulation:  '#eef1e5',
+    luteal:     '#ece5ea',
+  }
+  if (!w.phase) return 'var(--bg-elevated)'
+  if (w.dayData?.flow && w.dayData.flow !== 'none') {
+    return '#fbe3da'
+  }
+  return baseTint[w.phase] || 'var(--bg-elevated)'
+}
+
+function flowColor(flow) {
+  const map = {
+    spotting: 'var(--flow-spotting)',
+    light:    'var(--flow-light)',
+    medium:   'var(--flow-medium)',
+    heavy:    'var(--flow-heavy)',
+  }
+  return map[flow] || 'transparent'
+}
+
+function phaseForDay(day, phaseSpans) {
+  for (const span of phaseSpans) {
+    if (day >= span.startDay && day <= span.endDay) return span.key
+  }
+  return null
+}
+
 function toISO(d) {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -464,14 +731,17 @@ function toISO(d) {
   return `${y}-${m}-${day}`
 }
 
-function buildMonthCells(viewMonth) {
-  const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1)
-  const last = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0)
-  const startWeekday = first.getDay() // 0 = Sun
-  const cells = []
-  for (let i = 0; i < startWeekday; i++) cells.push(null)
-  for (let d = 1; d <= last.getDate(); d++) {
-    cells.push(new Date(viewMonth.getFullYear(), viewMonth.getMonth(), d))
-  }
-  return cells
+function addDaysISO(iso, days) {
+  const d = new Date(iso + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return toISO(d)
+}
+
+function daysBetween(a, b) {
+  return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400_000)
+}
+
+function fmtShort(d) {
+  if (typeof d === 'string') d = new Date(d + 'T00:00:00')
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
