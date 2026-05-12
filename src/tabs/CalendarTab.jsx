@@ -142,6 +142,7 @@ function CycleRing({ cycle, periodStarts, days, symptomCounts, selected, onSelec
   const R_FLOW_BAND = 147       // thin flow indicator just outside wedges
   const R_FLOW_BAND_OUT = 151
   const R_PHASE_LABEL = 162     // phase name baseline (outside ring)
+  const R_LABEL_PATH = 159      // radius of the hidden arcs that text follows
   const R_PHASE_ARC = 173       // phase color band
   const R_PHASE_ARC_OUT = 181
   const R_TODAY_RING = 100      // inner accent ring for "today"
@@ -300,30 +301,61 @@ function CycleRing({ cycle, periodStarts, days, symptomCounts, selected, onSelec
           )
         })}
 
-        {/* Phase labels — OUTSIDE the ring, follow each phase arc midpoint */}
+        {/* Hidden arcs for phase labels to follow */}
+        <defs>
+          {phaseSpans.map(span => {
+            const a0 = startAngleDeg + (span.startDay - 1) * wedgeAngle
+            const a1 = startAngleDeg + span.endDay * wedgeAngle
+            const midAngle = (a0 + a1) / 2
+            const aMod = ((midAngle % 360) + 360) % 360
+            // Bottom half of ring (between 0° and 180° in standard SVG, where +y is down):
+            // We want text on these phases to flow counterclockwise so it reads right-side up.
+            const onBottom = aMod > 0 && aMod < 180
+            const pathR = R_LABEL_PATH
+            // Inset arc endpoints slightly so the text doesn't kiss the phase boundary
+            const pad = Math.min(wedgeAngle * 0.4, 4) // up to 4° padding on each end
+            const arcStart = a0 + pad
+            const arcEnd = a1 - pad
+            const startA = onBottom ? arcEnd : arcStart
+            const endA = onBottom ? arcStart : arcEnd
+            const sweep = onBottom ? 0 : 1
+            const p1 = polar(CX, CY, pathR, startA)
+            const p2 = polar(CX, CY, pathR, endA)
+            const large = Math.abs(endA - startA) > 180 ? 1 : 0
+            return (
+              <path
+                key={`arc-${span.key}`}
+                id={`phase-arc-${span.key}`}
+                d={`M ${p1.x} ${p1.y} A ${pathR} ${pathR} 0 ${large} ${sweep} ${p2.x} ${p2.y}`}
+                fill="none"
+              />
+            )
+          })}
+        </defs>
+
+        {/* Phase labels — curved along the arcs */}
         {phaseSpans.map(span => {
           if (span.endDay - span.startDay < 1) return null
-          const midDay = (span.startDay + span.endDay) / 2
-          const a = startAngleDeg + (midDay - 0.5) * wedgeAngle
-          const { x, y } = polar(CX, CY, R_PHASE_LABEL, a)
-          // Anchor adjusts based on which side of the ring it's on
-          const aMod = ((a % 360) + 360) % 360
-          let anchor = 'middle'
-          if (aMod > 280 || aMod < 80) anchor = 'middle'
-          else if (aMod < 180) anchor = 'start'
-          else anchor = 'end'
+          const phaseLen = span.endDay - span.startDay + 1
+          // For short phases (like 3-day ovulation), use a shorter label
+          let label = PHASES[span.key].label.toUpperCase()
+          if (phaseLen <= 3 && label.length > 5) label = label.slice(0, 5)
           return (
             <text
               key={`pl-${span.key}`}
-              x={x} y={y + 3}
-              textAnchor={anchor}
               fontSize="9.5"
               fill={phaseVarColor(span.key)}
               fontWeight="700"
-              letterSpacing="0.08em"
+              letterSpacing="0.12em"
               style={{ pointerEvents: 'none', userSelect: 'none' }}
             >
-              {PHASES[span.key].label.toUpperCase()}
+              <textPath
+                href={`#phase-arc-${span.key}`}
+                startOffset="50%"
+                textAnchor="middle"
+              >
+                {label}
+              </textPath>
             </text>
           )
         })}
