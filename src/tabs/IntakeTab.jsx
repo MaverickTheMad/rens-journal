@@ -3,7 +3,6 @@ import { supabase } from '../supabase.js'
 import {
   FOOD_CATEGORIES, SYMPTOMS, MOODS, EXERCISE_TYPES, FLOW_LEVELS,
   PHASES, computeCyclePhase, todayLocalISO, formatTimeLocal, formatDateLong,
-  localDayBounds,
 } from '../constants.js'
 import TimePicker from '../components/TimePicker.jsx'
 
@@ -22,7 +21,8 @@ export default function IntakeTab({ periodStarts, onChange, refreshKey }) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { startISO: start, endISO: end } = localDayBounds(date)
+    const start = date + 'T00:00:00'
+    const end   = date + 'T23:59:59.999'
 
     const [d, s, f, m, w, e] = await Promise.all([
       supabase.from('cycle_days').select('*').eq('date', date).maybeSingle(),
@@ -282,19 +282,24 @@ function FlowCard({ day, updateDay }) {
 
 // ============ ADD SYMPTOM ============
 function AddSymptom({ date, onDone }) {
-  const [symptom, setSymptom] = useState(null)
+  const [selected, setSelected] = useState([])  // array of symptom strings
   const [severity, setSeverity] = useState(3)
   const [time, setTime] = useState(new Date().toISOString())
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const toggle = (s) => setSelected(prev =>
+    prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+  )
+
   const save = async () => {
-    if (!symptom) return
+    if (selected.length === 0) return
     setSaving(true)
     const occurred_at = adjustToDate(time, date)
-    const { error } = await supabase.from('symptom_events').insert({
+    const rows = selected.map(symptom => ({
       occurred_at, symptom, severity, notes: notes || null,
-    })
+    }))
+    const { error } = await supabase.from('symptom_events').insert(rows)
     setSaving(false)
     if (error) { alert(error.message); return }
     onDone()
@@ -302,12 +307,17 @@ function AddSymptom({ date, onDone }) {
 
   return (
     <div className="card add-panel rise">
-      <div className="card-header"><h3 className="card-title">Log symptom</h3></div>
+      <div className="card-header">
+        <h3 className="card-title">Log symptoms</h3>
+        {selected.length > 0 && (
+          <span className="selected-count">{selected.length} selected</span>
+        )}
+      </div>
 
-      <label className="field-label">What</label>
+      <label className="field-label">What <span className="muted" style={{ textTransform: 'none', fontWeight: 400 }}>(tap all that apply)</span></label>
       <div className="chip-group">
         {SYMPTOMS.map(s => (
-          <button key={s} className={`chip ${symptom === s ? 'chip-selected' : ''}`} onClick={() => setSymptom(s)}>
+          <button key={s} className={`chip ${selected.includes(s) ? 'chip-selected' : ''}`} onClick={() => toggle(s)}>
             {s}
           </button>
         ))}
@@ -320,17 +330,25 @@ function AddSymptom({ date, onDone }) {
       <TimePicker value={time} onChange={setTime} />
 
       <label className="field-label" style={{ marginTop: 16 }}>Notes (optional)</label>
-      <textarea className="textarea" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. dull, came on suddenly…" />
+      <textarea className="textarea" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. came on suddenly, dull ache…" />
 
       <div className="row" style={{ marginTop: 16, gap: 8 }}>
         <button className="btn btn-ghost btn-sm" onClick={onDone}>Cancel</button>
-        <button className="btn btn-primary btn-full" onClick={save} disabled={!symptom || saving}>
-          {saving ? 'Saving…' : 'Save symptom'}
+        <button className="btn btn-primary btn-full" onClick={save} disabled={selected.length === 0 || saving}>
+          {saving ? 'Saving…' : selected.length > 1 ? `Save ${selected.length} symptoms` : 'Save symptom'}
         </button>
       </div>
 
       <style>{`
         .required { color: var(--rose); }
+        .selected-count {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--rose-deep);
+          background: var(--rose-bg);
+          padding: 3px 10px;
+          border-radius: var(--radius-pill);
+        }
       `}</style>
     </div>
   )
@@ -386,18 +404,31 @@ function SeverityPicker({ value, onChange }) {
 // ============ ADD FOOD ============
 function AddFood({ date, onDone }) {
   const [category, setCategory] = useState(null)
-  const [item, setItem] = useState(null)
+  // basket: array of { category, item }
+  const [basket, setBasket] = useState([])
   const [time, setTime] = useState(new Date().toISOString())
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const toggleItem = (cat, item) => {
+    const exists = basket.find(b => b.category === cat && b.item === item)
+    if (exists) {
+      setBasket(prev => prev.filter(b => !(b.category === cat && b.item === item)))
+    } else {
+      setBasket(prev => [...prev, { category: cat, item }])
+    }
+  }
+
+  const isSelected = (cat, item) => basket.some(b => b.category === cat && b.item === item)
+
   const save = async () => {
-    if (!category || !item) return
+    if (basket.length === 0) return
     setSaving(true)
     const occurred_at = adjustToDate(time, date)
-    const { error } = await supabase.from('food_events').insert({
+    const rows = basket.map(({ category, item }) => ({
       occurred_at, category, item, notes: notes || null,
-    })
+    }))
+    const { error } = await supabase.from('food_events').insert(rows)
     setSaving(false)
     if (error) { alert(error.message); return }
     onDone()
@@ -407,30 +438,53 @@ function AddFood({ date, onDone }) {
 
   return (
     <div className="card add-panel rise">
-      <div className="card-header"><h3 className="card-title">Log food</h3></div>
+      <div className="card-header">
+        <h3 className="card-title">Log food</h3>
+        {basket.length > 0 && (
+          <span className="selected-count">{basket.length} item{basket.length > 1 ? 's' : ''}</span>
+        )}
+      </div>
 
-      <label className="field-label">Category</label>
+      {/* Basket summary */}
+      {basket.length > 0 && (
+        <div className="basket">
+          {basket.map(b => (
+            <span key={b.category + b.item} className="basket-chip">
+              {b.item}
+              <button className="basket-remove" onClick={() => toggleItem(b.category, b.item)}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <label className="field-label" style={{ marginTop: basket.length > 0 ? 12 : 0 }}>Category</label>
       <div className="chip-group">
-        {FOOD_CATEGORIES.map(c => (
-          <button
-            key={c.name}
-            className={`chip ${category === c.name ? 'chip-selected' : ''}`}
-            onClick={() => { setCategory(c.name); setItem(null) }}
-          >
-            {c.name}
-          </button>
-        ))}
+        {FOOD_CATEGORIES.map(c => {
+          const hasSelected = basket.some(b => b.category === c.name)
+          return (
+            <button
+              key={c.name}
+              className={`chip ${category === c.name ? 'chip-selected' : ''}`}
+              onClick={() => setCategory(category === c.name ? null : c.name)}
+              style={hasSelected && category !== c.name ? { borderColor: 'var(--rose-soft)', color: 'var(--rose-deep)' } : {}}
+            >
+              {c.name}{hasSelected ? ` ·${basket.filter(b => b.category === c.name).length}` : ''}
+            </button>
+          )
+        })}
       </div>
 
       {cat && (
         <>
-          <label className="field-label" style={{ marginTop: 16 }}>Item</label>
+          <label className="field-label" style={{ marginTop: 16 }}>
+            {cat.name} <span className="muted" style={{ textTransform: 'none', fontWeight: 400 }}>(tap all that apply)</span>
+          </label>
           <div className="chip-group">
             {cat.items.map(i => (
               <button
                 key={i}
-                className={`chip ${item === i ? 'chip-selected' : ''}`}
-                onClick={() => setItem(i)}
+                className={`chip ${isSelected(cat.name, i) ? 'chip-selected' : ''}`}
+                onClick={() => toggleItem(cat.name, i)}
               >
                 {i}
               </button>
@@ -443,32 +497,67 @@ function AddFood({ date, onDone }) {
       <TimePicker value={time} onChange={setTime} />
 
       <label className="field-label" style={{ marginTop: 16 }}>Notes (optional)</label>
-      <textarea className="textarea" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. cheddar, ~2oz…" />
+      <textarea className="textarea" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. big portion, post-workout…" />
 
       <div className="row" style={{ marginTop: 16, gap: 8 }}>
         <button className="btn btn-ghost btn-sm" onClick={onDone}>Cancel</button>
-        <button className="btn btn-primary btn-full" onClick={save} disabled={!category || !item || saving}>
-          {saving ? 'Saving…' : 'Save food'}
+        <button className="btn btn-primary btn-full" onClick={save} disabled={basket.length === 0 || saving}>
+          {saving ? 'Saving…' : basket.length > 1 ? `Save ${basket.length} foods` : 'Save food'}
         </button>
       </div>
+
+      <style>{`
+        .basket {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          padding: 10px 12px;
+          background: var(--rose-bg);
+          border-radius: var(--radius-sm);
+          margin-bottom: 4px;
+        }
+        .basket-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 4px 10px;
+          background: var(--bg-elevated);
+          border: 1px solid var(--rose-soft);
+          border-radius: var(--radius-pill);
+          font-size: 13px;
+          color: var(--rose-deep);
+          font-weight: 500;
+        }
+        .basket-remove {
+          font-size: 14px;
+          color: var(--rose-soft);
+          line-height: 1;
+        }
+        .basket-remove:hover { color: var(--rose-deep); }
+      `}</style>
     </div>
   )
 }
 
 // ============ ADD MOOD ============
 function AddMood({ date, onDone }) {
-  const [mood, setMood] = useState(null)
+  const [selected, setSelected] = useState([])
   const [time, setTime] = useState(new Date().toISOString())
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const toggle = (m) => setSelected(prev =>
+    prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
+  )
+
   const save = async () => {
-    if (!mood) return
+    if (selected.length === 0) return
     setSaving(true)
     const occurred_at = adjustToDate(time, date)
-    const { error } = await supabase.from('mood_events').insert({
+    const rows = selected.map(mood => ({
       occurred_at, mood, notes: notes || null,
-    })
+    }))
+    const { error } = await supabase.from('mood_events').insert(rows)
     setSaving(false)
     if (error) { alert(error.message); return }
     onDone()
@@ -476,10 +565,16 @@ function AddMood({ date, onDone }) {
 
   return (
     <div className="card add-panel rise">
-      <div className="card-header"><h3 className="card-title">Log mood</h3></div>
+      <div className="card-header">
+        <h3 className="card-title">Log mood</h3>
+        {selected.length > 0 && (
+          <span className="selected-count">{selected.length} selected</span>
+        )}
+      </div>
+      <label className="field-label">How are you feeling? <span className="muted" style={{ textTransform: 'none', fontWeight: 400 }}>(tap all that apply)</span></label>
       <div className="chip-group">
         {MOODS.map(m => (
-          <button key={m} className={`chip ${mood === m ? 'chip-selected' : ''}`} onClick={() => setMood(m)}>
+          <button key={m} className={`chip ${selected.includes(m) ? 'chip-selected' : ''}`} onClick={() => toggle(m)}>
             {m}
           </button>
         ))}
@@ -490,8 +585,8 @@ function AddMood({ date, onDone }) {
       <textarea className="textarea" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
       <div className="row" style={{ marginTop: 16, gap: 8 }}>
         <button className="btn btn-ghost btn-sm" onClick={onDone}>Cancel</button>
-        <button className="btn btn-primary btn-full" onClick={save} disabled={!mood || saving}>
-          {saving ? 'Saving…' : 'Save mood'}
+        <button className="btn btn-primary btn-full" onClick={save} disabled={selected.length === 0 || saving}>
+          {saving ? 'Saving…' : selected.length > 1 ? `Save ${selected.length} moods` : 'Save mood'}
         </button>
       </div>
     </div>
