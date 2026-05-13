@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../supabase.js'
-import { PHASES, FLOW_LEVELS, computeCyclePhase, todayLocalISO, formatDateLong } from '../constants.js'
+import { PHASES, FLOW_LEVELS, computeCyclePhase, todayLocalISO, formatDateLong, localDayBounds, isoToLocalDateStr } from '../constants.js'
 
 // ============================================================
 // CYCLE RING
@@ -20,12 +20,15 @@ export default function CalendarTab({ periodStarts, onPeriodStartsChange, refres
     setLoading(true)
     const firstStr = cycle.startISO
     const lastStr  = cycle.endISO
+    // Span the cycle range in UTC bounds that cover all local-time days within it
+    const { startISO: rangeStart } = localDayBounds(firstStr)
+    const { endISO:   rangeEnd   } = localDayBounds(lastStr)
 
     const [dDays, dSym] = await Promise.all([
       supabase.from('cycle_days').select('date,flow,cycle_phase,cycle_phase_override').gte('date', firstStr).lte('date', lastStr),
       supabase.from('symptom_events').select('occurred_at')
-        .gte('occurred_at', firstStr + 'T00:00:00')
-        .lte('occurred_at', lastStr + 'T23:59:59'),
+        .gte('occurred_at', rangeStart)
+        .lte('occurred_at', rangeEnd),
     ])
 
     const byDate = {}
@@ -34,7 +37,7 @@ export default function CalendarTab({ periodStarts, onPeriodStartsChange, refres
 
     const sCounts = {}
     for (const ev of dSym.data || []) {
-      const d = ev.occurred_at.slice(0, 10)
+      const d = isoToLocalDateStr(ev.occurred_at)
       sCounts[d] = (sCounts[d] || 0) + 1
     }
     setSymptomCounts(sCounts)
@@ -484,8 +487,7 @@ function SelectedDayCard({ date, periodStarts, onClose, onPeriodStartsChange }) 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const start = date + 'T00:00:00'
-      const end   = date + 'T23:59:59.999'
+      const { startISO: start, endISO: end } = localDayBounds(date)
       const [d, s, f, m, w, e] = await Promise.all([
         supabase.from('cycle_days').select('*').eq('date', date).maybeSingle(),
         supabase.from('symptom_events').select('*').gte('occurred_at', start).lte('occurred_at', end),
