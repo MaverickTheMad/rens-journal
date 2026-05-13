@@ -122,3 +122,28 @@ export function formatDateShort(dateStr) {
   const d = new Date(dateStr + 'T00:00:00')
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
+
+// ---------- TIMEZONE-AWARE HELPERS ----------
+// `dateStr` here is always a local-time YYYY-MM-DD.
+// `localDayBounds` returns the start/end of that local day expressed as UTC
+// ISO strings — used for filtering timestamptz columns in Supabase queries.
+// Without this, late-evening events get pushed to the next UTC day and
+// show up under the wrong calendar date.
+export function localDayBounds(dateStr) {
+  const startLocal = new Date(dateStr + 'T00:00:00')
+  const endLocal   = new Date(dateStr + 'T23:59:59.999')
+  return {
+    startISO: startLocal.toISOString(),
+    endISO:   endLocal.toISOString(),
+  }
+}
+
+// Given a UTC ISO timestamp from the DB, return the YYYY-MM-DD it falls on
+// in the user's local timezone. Used for bucketing events by day.
+export function isoToLocalDateStr(iso) {
+  const d = new Date(iso)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
