@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase.js'
-import { FOOD_CATEGORIES, SYMPTOMS, PHASES } from '../constants.js'
+import { FOOD_CATEGORIES, SYMPTOMS, PHASES, isoToLocalDateStr } from '../constants.js'
 
 const WINDOWS = [
   { value: 14, label: '14 days' },
@@ -401,7 +401,7 @@ function PhaseBreakdown({ symptoms, periodStarts }) {
   // Count symptoms per phase based on the cycle_days table OR fallback to computing phase from occurred_at
   const phaseCounts = { menstrual: 0, follicular: 0, ovulation: 0, luteal: 0 }
   for (const ev of symptoms) {
-    const dateStr = new Date(ev.occurred_at).toISOString().slice(0, 10)
+    const dateStr = isoToLocalDateStr(ev.occurred_at)
     const phase = computePhaseForDate(dateStr, periodStarts)
     if (phase) phaseCounts[phase]++
   }
