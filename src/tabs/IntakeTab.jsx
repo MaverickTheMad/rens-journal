@@ -3,6 +3,7 @@ import { supabase } from '../supabase.js'
 import {
   FOOD_CATEGORIES, SYMPTOMS, MOODS, EXERCISE_TYPES, FLOW_LEVELS,
   PHASES, computeCyclePhase, todayLocalISO, formatTimeLocal, formatDateLong,
+  localDayBounds,
 } from '../constants.js'
 import TimePicker from '../components/TimePicker.jsx'
 
@@ -21,8 +22,7 @@ export default function IntakeTab({ periodStarts, onChange, refreshKey }) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const start = date + 'T00:00:00'
-    const end   = date + 'T23:59:59.999'
+    const { startISO: start, endISO: end } = localDayBounds(date)
 
     const [d, s, f, m, w, e] = await Promise.all([
       supabase.from('cycle_days').select('*').eq('date', date).maybeSingle(),
