@@ -1,29 +1,31 @@
 // ---------- FOOD TAXONOMY ----------
 export const FOOD_CATEGORIES = [
-  { name: 'Dairy', items: ['Milk', 'Cheese', 'Yogurt', 'Butter', 'Cream', 'Ice cream'] },
-  { name: 'Gluten / Grains', items: ['Bread', 'Pasta', 'Cereal', 'Oats', 'Rice', 'Corn'] },
-  { name: 'Sugar / Sweets', items: ['Candy', 'Dessert', 'Soda', 'Baked goods', 'Chocolate'] },
-  { name: 'Caffeine', items: ['Coffee', 'Black tea', 'Green tea', 'Energy drink'] },
-  { name: 'Alcohol', items: ['Wine', 'Beer', 'Liquor', 'Cocktail'] },
-  { name: 'Processed / Fast food', items: ['Fast food', 'Frozen meal', 'Chips', 'Deli meat'] },
-  { name: 'Spicy', items: ['Hot sauce', 'Peppers', 'Spicy dish'] },
-  { name: 'Nightshades', items: ['Tomato', 'Potato', 'Eggplant', 'Bell pepper'] },
-  { name: 'High-FODMAP', items: ['Onion', 'Garlic', 'Beans', 'Lentils'] },
-  { name: 'Red meat', items: ['Beef', 'Pork', 'Lamb'] },
-  { name: 'Seafood', items: ['Fish', 'Shellfish'] },
-  { name: 'Cruciferous veg', items: ['Broccoli', 'Cauliflower', 'Cabbage', 'Brussels sprouts'] },
-  { name: 'Citrus', items: ['Orange', 'Lemon', 'Grapefruit'] },
-  { name: 'Nuts', items: ['Peanut', 'Almond', 'Cashew', 'Walnut'] },
-  { name: 'Eggs', items: ['Eggs'] },
-  { name: 'Soy', items: ['Tofu', 'Soy sauce', 'Edamame'] },
-  { name: 'Artificial sweeteners', items: ['Diet soda', 'Sugar-free'] },
+  { name: 'Alcohol',               items: ['Beer', 'Cocktail', 'Liquor', 'Wine'] },
+  { name: 'Artificial sweeteners', items: ['Diet soda', 'Sugar-free gum', 'Sugar-free snacks'] },
+  { name: 'Caffeine',              items: ['Black tea', 'Coffee', 'Energy drink', 'Green tea', 'Matcha'] },
+  { name: 'Citrus',                items: ['Grapefruit', 'Lemon', 'Lime', 'Orange'] },
+  { name: 'Cruciferous veg',       items: ['Broccoli', 'Brussels sprouts', 'Cabbage', 'Cauliflower', 'Kale'] },
+  { name: 'Dairy',                 items: ['Butter', 'Cheese', 'Cottage cheese', 'Cream', 'Ice cream', 'Milk', 'Sour cream', 'Yogurt'] },
+  { name: 'Eggs',                  items: ['Eggs'] },
+  { name: 'Gluten / Grains',       items: ['Bread', 'Cereal', 'Corn', 'Oats', 'Pasta', 'Rice', 'Wheat'] },
+  { name: 'High-FODMAP',           items: ['Apples', 'Beans', 'Garlic', 'Lentils', 'Mushrooms', 'Onion'] },
+  { name: 'High-histamine',        items: ['Aged cheese', 'Cured / deli meat', 'Fermented foods', 'Kefir', 'Kombucha', 'Leftovers / reheated', 'Smoked fish', 'Vinegar'] },
+  { name: 'Nightshades',           items: ['Bell pepper', 'Eggplant', 'Potato', 'Tomato'] },
+  { name: 'Nuts / Seeds',          items: ['Almond', 'Cashew', 'Peanut', 'Pumpkin seeds', 'Sunflower seeds', 'Walnut'] },
+  { name: 'Processed / Fast food', items: ['Canned food', 'Chips', 'Deli meat', 'Fast food', 'Frozen meal', 'Packaged snacks'] },
+  { name: 'Red meat',              items: ['Beef', 'Lamb', 'Pork'] },
+  { name: 'Seafood',               items: ['Crab', 'Fish', 'Salmon', 'Shellfish', 'Shrimp', 'Tuna'] },
+  { name: 'Soy',                   items: ['Edamame', 'Soy sauce', 'Tofu'] },
+  { name: 'Spicy',                 items: ['Hot sauce', 'Peppers', 'Spicy dish'] },
+  { name: 'Sugar / Sweets',        items: ['Baked goods', 'Candy', 'Chocolate', 'Dessert', 'Fruit juice', 'Honey', 'Maple syrup', 'Soda'] },
 ]
+
 
 // ---------- SYMPTOMS ----------
 export const SYMPTOMS = [
   'Cramps', 'Headache', 'Migraine', 'Bloating', 'Nausea', 'Fatigue',
   'Breast tenderness', 'Back pain', 'Joint pain', 'Acne', 'Hot flashes',
-  'Dizziness', 'Constipation', 'Diarrhea', 'Gas',
+  'Dizziness', 'Constipation', 'Diarrhea', 'Gas', 'Stomach Ache',
 ]
 
 // ---------- MOODS ----------
