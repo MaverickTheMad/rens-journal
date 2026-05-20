@@ -300,8 +300,7 @@ function AddSymptom({ date, onDone }) {
       occurred_at, symptom, severity, notes: notes || null,
     }))
     const { error } = await supabase.from('symptom_events').insert(rows)
-    setSaving(false)
-    if (error) { alert(error.message); return }
+    if (error) { setSaving(false); alert(error.message); return }
     onDone()
   }
 
@@ -411,12 +410,11 @@ function AddFood({ date, onDone }) {
   const [saving, setSaving] = useState(false)
 
   const toggleItem = (cat, item) => {
-    const exists = basket.find(b => b.category === cat && b.item === item)
-    if (exists) {
-      setBasket(prev => prev.filter(b => !(b.category === cat && b.item === item)))
-    } else {
-      setBasket(prev => [...prev, { category: cat, item }])
-    }
+    setBasket(prev => {
+      const exists = prev.find(b => b.category === cat && b.item === item)
+      if (exists) return prev.filter(b => !(b.category === cat && b.item === item))
+      return [...prev, { category: cat, item }]
+    })
   }
 
   const isSelected = (cat, item) => basket.some(b => b.category === cat && b.item === item)
@@ -429,8 +427,7 @@ function AddFood({ date, onDone }) {
       occurred_at, category, item, notes: notes || null,
     }))
     const { error } = await supabase.from('food_events').insert(rows)
-    setSaving(false)
-    if (error) { alert(error.message); return }
+    if (error) { setSaving(false); alert(error.message); return }
     onDone()
   }
 
@@ -558,8 +555,7 @@ function AddMood({ date, onDone }) {
       occurred_at, mood, notes: notes || null,
     }))
     const { error } = await supabase.from('mood_events').insert(rows)
-    setSaving(false)
-    if (error) { alert(error.message); return }
+    if (error) { setSaving(false); alert(error.message); return }
     onDone()
   }
 
@@ -605,8 +601,7 @@ function AddWater({ date, onDone }) {
     const { error } = await supabase.from('water_events').insert({
       occurred_at, amount_oz: amount,
     })
-    setSaving(false)
-    if (error) { alert(error.message); return }
+    if (error) { setSaving(false); alert(error.message); return }
     onDone()
   }
 
@@ -648,8 +643,7 @@ function AddExercise({ date, onDone }) {
     const { error } = await supabase.from('exercise_events').insert({
       occurred_at, exercise_type: type, duration_minutes: duration, notes: notes || null,
     })
-    setSaving(false)
-    if (error) { alert(error.message); return }
+    if (error) { setSaving(false); alert(error.message); return }
     onDone()
   }
 
