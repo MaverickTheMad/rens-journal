@@ -100,8 +100,7 @@ function TabButton({ active, onClick, icon, label }) {
 }
 
 /* ============================================================
-   HEADER ART — night sky + proper tuxedo cat + botanicals
-   Title is NOT inside this SVG. It renders below.
+   HEADER ART — night sky + accurate tuxedo cat + botanicals
    ============================================================ */
 function HeaderArt() {
   return (
@@ -122,37 +121,42 @@ function HeaderArt() {
           <stop offset="100%" stopColor="var(--amber-soft)" />
         </linearGradient>
         <radialGradient id="hdrGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"   stopColor="var(--violet)" stopOpacity="0.15" />
+          <stop offset="0%"   stopColor="var(--violet)" stopOpacity="0.18" />
           <stop offset="100%" stopColor="var(--violet)" stopOpacity="0" />
+        </radialGradient>
+        {/* Green eye glow */}
+        <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor="#a8d878" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#6aaa40" stopOpacity="0.7" />
         </radialGradient>
       </defs>
 
       {/* Background sky */}
       <rect width="400" height="150" fill="url(#hdrSky)" />
 
-      {/* Subtle violet glow behind cat */}
-      <ellipse cx="200" cy="110" rx="80" ry="50" fill="url(#hdrGlow)" />
+      {/* Soft violet glow around cat */}
+      <ellipse cx="200" cy="115" rx="90" ry="55" fill="url(#hdrGlow)" />
 
-      {/* Stars — varied sizes */}
+      {/* Stars */}
       {[
-        [25,12,1.1],[55,8,0.8],[88,18,1.0],[118,7,1.3],
-        [152,14,0.7],[185,6,1.0],[230,10,0.9],[262,16,1.2],
-        [295,8,0.8],[328,12,1.1],[358,6,0.9],[380,20,0.7],
-        [40,32,0.6],[100,38,0.8],[160,28,0.7],[240,34,0.6],
-        [310,30,0.8],[370,40,0.6],
+        [22,10,1.1],[58,7,0.8],[92,17,1.0],[125,6,1.3],
+        [158,13,0.7],[188,5,1.0],[235,9,0.9],[268,15,1.2],
+        [298,7,0.8],[332,11,1.1],[362,5,0.9],[385,19,0.7],
+        [42,30,0.6],[108,36,0.8],[168,26,0.7],[245,32,0.6],
+        [315,28,0.8],[375,38,0.6],
       ].map(([x,y,r],i) => (
-        <circle key={i} cx={x} cy={y} r={r} fill="var(--moon)" opacity={0.65 + r*0.1} />
+        <circle key={i} cx={x} cy={y} r={r} fill="var(--moon)" opacity={0.6 + r*0.1} />
       ))}
 
       {/* Crescent moon — top right */}
-      <g transform="translate(348,28)">
+      <g transform="translate(348,26)">
         <circle cx="0" cy="0" r="20" fill="url(#hdrMoon)" opacity="0.95" />
         <circle cx="7" cy="-5" r="16" fill="var(--midnight)" />
       </g>
 
       {/* Four-point sparkles */}
-      {[[148,55],[258,48],[200,90],[320,65]].map(([x,y],i) => (
-        <g key={i} transform={`translate(${x},${y})`} opacity="0.55">
+      {[[148,52],[258,46],[196,88],[322,62]].map(([x,y],i) => (
+        <g key={i} transform={`translate(${x},${y})`} opacity="0.5">
           <line x1="0" y1="-5" x2="0" y2="5" stroke="var(--amber-soft)" strokeWidth="1.2" />
           <line x1="-5" y1="0" x2="5" y2="0" stroke="var(--amber-soft)" strokeWidth="1.2" />
           <line x1="-3" y1="-3" x2="3" y2="3" stroke="var(--amber-soft)" strokeWidth="0.7" />
@@ -160,95 +164,107 @@ function HeaderArt() {
         </g>
       ))}
 
-      {/* Left botanical — tall herb sprig */}
-      <g transform="translate(28,148) rotate(5)" opacity="0.7">
-        <line x1="0" y1="0" x2="-4" y2="-80" stroke="var(--forest)" strokeWidth="1.8" strokeLinecap="round" />
-        {[[-4,-20],[-8,-35],[-4,-50],[-8,-63],[-4,-74]].map(([lx,ly],i) => (
+      {/* Left botanical */}
+      <g transform="translate(28,148) rotate(4)" opacity="0.65">
+        <line x1="0" y1="0" x2="-3" y2="-78" stroke="var(--forest)" strokeWidth="1.8" strokeLinecap="round" />
+        {[[-3,-18],[-7,-33],[-3,-48],[-7,-61],[-3,-73]].map(([lx,ly],i) => (
           <g key={i} transform={`translate(${lx},${ly})`}>
             <ellipse cx="-8" cy="0" rx="10" ry="4" fill="var(--forest)" opacity="0.65" transform={`rotate(${-30+i*8})`} />
-            <ellipse cx="6"  cy="0" rx="8"  ry="3" fill="var(--forest)" opacity="0.55" transform={`rotate(${25-i*6})`} />
+            <ellipse cx="6"  cy="0" rx="8"  ry="3" fill="var(--forest)" opacity="0.5"  transform={`rotate(${25-i*6})`} />
           </g>
         ))}
       </g>
 
-      {/* Right botanical — with berries */}
-      <g transform="translate(372,148) rotate(-5)" opacity="0.7">
-        <line x1="0" y1="0" x2="4" y2="-75" stroke="var(--forest)" strokeWidth="1.8" strokeLinecap="round" />
-        {[[4,-18],[8,-32],[4,-47],[8,-60],[4,-70]].map(([lx,ly],i) => (
+      {/* Right botanical with berries */}
+      <g transform="translate(372,148) rotate(-4)" opacity="0.65">
+        <line x1="0" y1="0" x2="3" y2="-74" stroke="var(--forest)" strokeWidth="1.8" strokeLinecap="round" />
+        {[[3,-16],[7,-30],[3,-45],[7,-58],[3,-69]].map(([lx,ly],i) => (
           <g key={i} transform={`translate(${lx},${ly})`}>
             <ellipse cx="8"  cy="0" rx="10" ry="4" fill="var(--forest)" opacity="0.65" transform={`rotate(${30-i*8})`} />
-            <ellipse cx="-6" cy="0" rx="8"  ry="3" fill="var(--forest)" opacity="0.55" transform={`rotate(${-25+i*6})`} />
+            <ellipse cx="-6" cy="0" rx="8"  ry="3" fill="var(--forest)" opacity="0.5"  transform={`rotate(${-25+i*6})`} />
           </g>
         ))}
-        {/* Berry cluster at top */}
-        <circle cx="4"  cy="-78" r="3.5" fill="var(--rose)" opacity="0.6" />
-        <circle cx="10" cy="-74" r="2.5" fill="var(--rose)" opacity="0.5" />
-        <circle cx="-1" cy="-74" r="2.5" fill="var(--rose)" opacity="0.5" />
-        <circle cx="6"  cy="-82" r="2"   fill="var(--rose)" opacity="0.4" />
+        <circle cx="3"  cy="-77" r="3.5" fill="var(--rose)" opacity="0.65" />
+        <circle cx="9"  cy="-73" r="2.5" fill="var(--rose)" opacity="0.5"  />
+        <circle cx="-2" cy="-73" r="2.5" fill="var(--rose)" opacity="0.5"  />
       </g>
 
-      {/* ====== TUXEDO CAT ====== */}
-      {/* Centered at x=200, sitting on the bottom edge */}
-      <g transform="translate(200, 148)">
+      {/* ====== TUXEDO CAT — based on real cat ======
+          Mostly black. White: small mustache patch under nose,
+          chin, narrow chest bib, front paws.
+          Tall pointy ears. Green eyes. Alert/judgy expression.
+          Sitting upright, centered at x=200, bottom at y=148.
+      */}
+      <g transform="translate(200,148)">
 
-        {/* TAIL — drawn first so it's behind body */}
-        {/* Sweeps left and curls up */}
+        {/* TAIL — long, curves behind to the right */}
         <path
-          d="M-8,0 C-30,0 -46,-8 -44,-24 C-42,-38 -28,-38 -24,-28"
-          fill="none" stroke="var(--ink)" strokeWidth="10" strokeLinecap="round"
-        />
-        {/* White tail tip */}
-        <circle cx="-24" cy="-28" r="6" fill="var(--bg-paper)" opacity="0.95" />
-
-        {/* BODY — black, rounded rectangle */}
-        <ellipse cx="0" cy="-28" rx="24" ry="28" fill="var(--ink)" />
-
-        {/* WHITE CHEST BIB — teardrop shape */}
-        <path
-          d="M0,-10 C-10,-10 -12,-22 -8,-34 C-4,-44 4,-44 8,-34 C12,-22 10,-10 0,-10Z"
-          fill="var(--bg-paper)" opacity="0.95"
+          d="M12,-5 C36,-5 52,-18 50,-38 C48,-54 32,-52 30,-40"
+          fill="none" stroke="#111111" strokeWidth="9" strokeLinecap="round"
         />
 
-        {/* WHITE BELLY */}
-        <ellipse cx="0" cy="-10" rx="9" ry="7" fill="var(--bg-paper)" opacity="0.9" />
+        {/* BODY — tall, upright, mostly black */}
+        <ellipse cx="0" cy="-32" rx="22" ry="30" fill="#111111" />
 
-        {/* FRONT PAWS — side by side at bottom */}
-        <ellipse cx="-13" cy="-1" rx="10" ry="6" fill="var(--ink)" />
-        <ellipse cx="13"  cy="-1" rx="10" ry="6" fill="var(--ink)" />
-        {/* Right paw white toes */}
-        <ellipse cx="13"  cy="0"  rx="6"  ry="4" fill="var(--bg-paper)" opacity="0.85" />
+        {/* NARROW CHEST BIB — thin vertical strip, not wide */}
+        <path
+          d="M0,-14 C-5,-14 -6,-22 -4,-34 C-2,-42 2,-42 4,-34 C6,-22 5,-14 0,-14Z"
+          fill="#f5f0e8" opacity="0.95"
+        />
 
-        {/* HEAD — nice round circle */}
-        <circle cx="0" cy="-66" r="22" fill="var(--ink)" />
+        {/* FRONT PAWS — white, resting at bottom */}
+        <ellipse cx="-12" cy="-3" rx="9" ry="5.5" fill="#111111" />
+        <ellipse cx=" 12" cy="-3" rx="9" ry="5.5" fill="#111111" />
+        {/* White paw tops */}
+        <ellipse cx="-12" cy="-3" rx="7"  ry="4" fill="#f0ece0" opacity="0.9" />
+        <ellipse cx=" 12" cy="-3" rx="7"  ry="4" fill="#f0ece0" opacity="0.9" />
 
-        {/* EARS — sharp triangles, properly placed */}
-        <polygon points="-22,-76  -28,-100  -8,-80" fill="var(--ink)" />
-        <polygon points=" 22,-76   28,-100   8,-80" fill="var(--ink)" />
-        {/* Inner ear — pink */}
-        <polygon points="-21,-78  -25,-96  -10,-82" fill="var(--rose)" opacity="0.55" />
-        <polygon points=" 21,-78   25,-96   10,-82" fill="var(--rose)" opacity="0.55" />
+        {/* HEAD — slightly narrower than wide, sits close to body */}
+        <ellipse cx="0" cy="-72" rx="19" ry="18" fill="#111111" />
 
-        {/* WHITE FACE MASK — covers lower half of head */}
-        <ellipse cx="0" cy="-60" rx="14" ry="11" fill="var(--bg-paper)" opacity="0.95" />
+        {/* EARS — tall and pointy, signature feature */}
+        {/* Left ear */}
+        <polygon points="-19,-82  -26,-108  -7,-86" fill="#111111" />
+        {/* Right ear */}
+        <polygon points=" 19,-82   26,-108   7,-86" fill="#111111" />
+        {/* Inner ear — pinkish */}
+        <polygon points="-18,-84  -23,-104  -9,-88"  fill="#cc8880" opacity="0.5" />
+        <polygon points=" 18,-84   23,-104   9,-88"  fill="#cc8880" opacity="0.5" />
 
-        {/* EYES — happy closed crescents */}
-        <path d="M-9,-68 Q-6,-72 -3,-68" stroke="var(--ink)" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-        <path d="M 3,-68 Q 6,-72  9,-68" stroke="var(--ink)" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+        {/* GREEN EYES — almond shaped, slightly narrowed (judgy) */}
+        {/* Left eye */}
+        <ellipse cx="-8" cy="-72" rx="5.5" ry="4" fill="url(#eyeGlow)" />
+        <ellipse cx="-8" cy="-72" rx="2.5" ry="3.5" fill="#1a2a10" />
+        <circle  cx="-7" cy="-73" r="1"   fill="white" opacity="0.7" />
+        {/* Right eye */}
+        <ellipse cx=" 8" cy="-72" rx="5.5" ry="4" fill="url(#eyeGlow)" />
+        <ellipse cx=" 8" cy="-72" rx="2.5" ry="3.5" fill="#1a2a10" />
+        <circle  cx=" 9" cy="-73" r="1"   fill="white" opacity="0.7" />
+        {/* Eyelid — slightly lowered for judgy look */}
+        <path d="M-13.5,-73 Q-8,-70 -2.5,-73" stroke="#111111" strokeWidth="1.5" fill="none" opacity="0.5" />
+        <path d="M  2.5,-73 Q 8,-70  13.5,-73" stroke="#111111" strokeWidth="1.5" fill="none" opacity="0.5" />
 
-        {/* NOSE */}
-        <path d="M-3,-61 L0,-58 L3,-61 Q0,-64 -3,-61Z" fill="var(--rose)" opacity="0.75" />
+        {/* WHITE MUSTACHE PATCH — the signature marking, under nose */}
+        <ellipse cx="0" cy="-60" rx="7" ry="5.5" fill="#f0ece0" opacity="0.95" />
+        {/* Chin white */}
+        <ellipse cx="0" cy="-55" rx="5" ry="3.5" fill="#f0ece0" opacity="0.9" />
 
-        {/* MOUTH */}
-        <path d="M0,-58 Q-4,-55 -5,-53" stroke="var(--ink)" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6" />
-        <path d="M0,-58 Q 4,-55  5,-53" stroke="var(--ink)" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6" />
+        {/* NOSE — small, dark pink */}
+        <path d="M-2.5,-63 L0,-61 L2.5,-63 Q0,-65.5 -2.5,-63Z" fill="#bb6666" opacity="0.85" />
 
-        {/* WHISKERS */}
-        <line x1="-14" y1="-62" x2="-26" y2="-60" stroke="var(--bg-paper)" strokeWidth="1.1" opacity="0.7" />
-        <line x1="-14" y1="-59" x2="-26" y2="-58" stroke="var(--bg-paper)" strokeWidth="1.1" opacity="0.6" />
-        <line x1="-14" y1="-56" x2="-25" y2="-57" stroke="var(--bg-paper)" strokeWidth="1.1" opacity="0.5" />
-        <line x1=" 14" y1="-62" x2=" 26" y2="-60" stroke="var(--bg-paper)" strokeWidth="1.1" opacity="0.7" />
-        <line x1=" 14" y1="-59" x2=" 26" y2="-58" stroke="var(--bg-paper)" strokeWidth="1.1" opacity="0.6" />
-        <line x1=" 14" y1="-56" x2=" 25" y2="-57" stroke="var(--bg-paper)" strokeWidth="1.1" opacity="0.5" />
+        {/* WHISKERS — long, prominent */}
+        <line x1="-7"  y1="-61" x2="-24" y2="-58" stroke="#f0ece0" strokeWidth="0.9" opacity="0.85" />
+        <line x1="-7"  y1="-59" x2="-24" y2="-58" stroke="#f0ece0" strokeWidth="0.9" opacity="0.75" />
+        <line x1="-7"  y1="-57" x2="-23" y2="-58" stroke="#f0ece0" strokeWidth="0.9" opacity="0.65" />
+        <line x1=" 7"  y1="-61" x2=" 24" y2="-58" stroke="#f0ece0" strokeWidth="0.9" opacity="0.85" />
+        <line x1=" 7"  y1="-59" x2=" 24" y2="-58" stroke="#f0ece0" strokeWidth="0.9" opacity="0.75" />
+        <line x1=" 7"  y1="-57" x2=" 23" y2="-58" stroke="#f0ece0" strokeWidth="0.9" opacity="0.65" />
+        {/* Eyebrow whiskers */}
+        <line x1="-10" y1="-79" x2="-22" y2="-83" stroke="#f0ece0" strokeWidth="0.7" opacity="0.5" />
+        <line x1=" 10" y1="-79" x2=" 22" y2="-83" stroke="#f0ece0" strokeWidth="0.7" opacity="0.5" />
+
+        {/* Small collar tag suggestion */}
+        <circle cx="0" cy="-44" r="2.5" fill="var(--amber)" opacity="0.7" />
       </g>
     </svg>
   )
