@@ -1,17 +1,220 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1" />
-    <meta name="theme-color" content="#faf6f3" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%23c08478'/%3E%3C/svg%3E" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <title>Ren's Journal</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  /* ===== COZY LIGHT MODE ===== */
+  --bg:           #f7f0e8;
+  --bg-elevated:  #fdf8f2;
+  --bg-sunken:    #ede4d6;
+  --bg-warm:      #f2e8d8;
+
+  --ink:          #2c2016;
+  --ink-soft:     #5c4a38;
+  --ink-muted:    #9c8672;
+  --line:         #e0d0bc;
+  --line-soft:    #ece0d0;
+
+  --rose:         #c47060;
+  --rose-soft:    #dba090;
+  --rose-bg:      #f5e0d8;
+  --rose-deep:    #8c4a3c;
+
+  --amber:        #c8883a;
+  --amber-soft:   #dba860;
+  --amber-bg:     #f5e8d0;
+  --amber-deep:   #8c5c1c;
+
+  --plum:         #7a4a60;
+  --moss:         #5a7050;
+  --gold:         #b8843a;
+  --cream:        #fdf6ec;
+
+  /* Phase colors */
+  --phase-menstrual:  #c05a48;
+  --phase-follicular: #c88838;
+  --phase-ovulation:  #5a7050;
+  --phase-luteal:     #7a4a60;
+
+  /* Flow colors */
+  --flow-spotting: #e8c0b0;
+  --flow-light:   #d49080;
+  --flow-medium:  #c06050;
+  --flow-heavy:   #8c3828;
+
+  /* Cycle ring wedge tints */
+  --wedge-menstrual:  #fceae4;
+  --wedge-follicular: #faf0dc;
+  --wedge-ovulation:  #edf2e6;
+  --wedge-luteal:     #ede6ee;
+  --wedge-period:     #fbe0d4;
+  --wedge-future:     #ede4d6;
+  --wedge-divider:    #f7f0e8;
+
+  --tab-bar-bg: rgba(247, 240, 232, 0.94);
+
+  --radius-sm:   10px;
+  --radius:      18px;
+  --radius-lg:   26px;
+  --radius-pill: 999px;
+
+  --shadow-sm:  0 2px 6px rgba(80, 40, 10, 0.06), 0 1px 2px rgba(80, 40, 10, 0.04);
+  --shadow:     0 6px 20px rgba(80, 40, 10, 0.08), 0 2px 6px rgba(80, 40, 10, 0.05);
+  --shadow-lg:  0 16px 48px rgba(80, 40, 10, 0.12);
+  --shadow-warm: 0 4px 24px rgba(180, 100, 40, 0.10);
+
+  --serif: 'Lora', Georgia, serif;
+  --sans:  'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ===== DARK MODE — cozy deep ===== */
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light) {
+    --bg:          #1c1610;
+    --bg-elevated: #251e16;
+    --bg-sunken:   #2e2518;
+    --bg-warm:     #30261a;
+
+    --ink:         #f0e8dc;
+    --ink-soft:    #c8b89e;
+    --ink-muted:   #8c7860;
+    --line:        #3c3020;
+    --line-soft:   #302818;
+
+    --rose:        #d88878;
+    --rose-soft:   #e8a898;
+    --rose-bg:     #3c2018;
+    --rose-deep:   #f0b8a8;
+
+    --amber:       #d8983c;
+    --amber-soft:  #e8b860;
+    --amber-bg:    #3c2c10;
+    --amber-deep:  #f0c880;
+
+    --plum:        #a07888;
+    --moss:        #88a078;
+    --gold:        #d8a84c;
+    --cream:       #251e16;
+
+    --phase-menstrual:  #d87860;
+    --phase-follicular: #d8a840;
+    --phase-ovulation:  #88a078;
+    --phase-luteal:     #a07888;
+
+    --flow-spotting: #5c3028;
+    --flow-light:   #a05040;
+    --flow-medium:  #c07060;
+    --flow-heavy:   #d89080;
+
+    --wedge-menstrual:  #2e1e18;
+    --wedge-follicular: #2e2410;
+    --wedge-ovulation:  #1e2818;
+    --wedge-luteal:     #281820;
+    --wedge-period:     #3c2018;
+    --wedge-future:     #201a10;
+    --wedge-divider:    #1c1610;
+
+    --tab-bar-bg: rgba(28, 22, 16, 0.94);
+
+    --shadow-sm:  0 2px 6px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+    --shadow:     0 6px 20px rgba(0,0,0,0.4),  0 2px 6px rgba(0,0,0,0.3);
+    --shadow-lg:  0 16px 48px rgba(0,0,0,0.55);
+    --shadow-warm: 0 4px 24px rgba(0,0,0,0.4);
+  }
+}
+
+:root.theme-dark {
+  --bg:          #1c1610;
+  --bg-elevated: #251e16;
+  --bg-sunken:   #2e2518;
+  --bg-warm:     #30261a;
+  --ink:         #f0e8dc;
+  --ink-soft:    #c8b89e;
+  --ink-muted:   #8c7860;
+  --line:        #3c3020;
+  --line-soft:   #302818;
+  --rose:        #d88878;
+  --rose-soft:   #e8a898;
+  --rose-bg:     #3c2018;
+  --rose-deep:   #f0b8a8;
+  --amber:       #d8983c;
+  --amber-soft:  #e8b860;
+  --amber-bg:    #3c2c10;
+  --amber-deep:  #f0c880;
+  --plum:        #a07888;
+  --moss:        #88a078;
+  --gold:        #d8a84c;
+  --cream:       #251e16;
+  --phase-menstrual:  #d87860;
+  --phase-follicular: #d8a840;
+  --phase-ovulation:  #88a078;
+  --phase-luteal:     #a07888;
+  --flow-spotting: #5c3028;
+  --flow-light:   #a05040;
+  --flow-medium:  #c07060;
+  --flow-heavy:   #d89080;
+  --wedge-menstrual:  #2e1e18;
+  --wedge-follicular: #2e2410;
+  --wedge-ovulation:  #1e2818;
+  --wedge-luteal:     #281820;
+  --wedge-period:     #3c2018;
+  --wedge-future:     #201a10;
+  --wedge-divider:    #1c1610;
+  --tab-bar-bg: rgba(28, 22, 16, 0.94);
+  --shadow-sm:  0 2px 6px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+  --shadow:     0 6px 20px rgba(0,0,0,0.4),  0 2px 6px rgba(0,0,0,0.3);
+  --shadow-lg:  0 16px 48px rgba(0,0,0,0.55);
+  --shadow-warm: 0 4px 24px rgba(0,0,0,0.4);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
+  margin: 0; padding: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(200, 136, 58, 0.12), transparent 55%),
+    radial-gradient(ellipse 80% 40% at 100% 100%, rgba(196, 112, 96, 0.07), transparent 50%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(ellipse 120% 60% at 50% -10%, rgba(200, 136, 58, 0.08), transparent 55%),
+      radial-gradient(ellipse 80% 40% at 100% 100%, rgba(196, 112, 96, 0.05), transparent 50%),
+      var(--bg);
+  }
+}
+
+button { font-family: inherit; font-size: inherit; cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
+input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: var(--input-icon-filter, none); }
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light) input[type="date"]::-webkit-calendar-picker-indicator,
+  :root:not(.theme-light) input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+}
+:root.theme-dark input[type="date"]::-webkit-calendar-picker-indicator,
+:root.theme-dark input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+
+h1, h2, h3, h4 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; margin: 0; }
+::selection { background: var(--rose-bg); color: var(--rose-deep); }
+.safe-bottom { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.rise { animation: rise 0.4s cubic-bezier(0.2, 0.8, 0.3, 1); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.fade-in { animation: fadeIn 0.3s ease-out; }
