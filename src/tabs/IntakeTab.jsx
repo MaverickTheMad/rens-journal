@@ -682,7 +682,8 @@ function AddExercise({ date, onDone }) {
 
 // ============ TIMELINE ============
 function Timeline({ symptoms, foods, moods, waters, exercises, onReload }) {
-  // Merge all events into one timeline
+  const [editing, setEditing] = useState(null) // { kind, id }
+
   const events = [
     ...symptoms.map(e => ({ ...e, kind: 'symptom' })),
     ...foods.map(e => ({ ...e, kind: 'food' })),
@@ -701,6 +702,8 @@ function Timeline({ symptoms, foods, moods, waters, exercises, onReload }) {
     onReload()
   }
 
+  const isEditing = (kind, id) => editing?.kind === kind && editing?.id === id
+
   if (events.length === 0) {
     return (
       <div className="card">
@@ -717,12 +720,32 @@ function Timeline({ symptoms, foods, moods, waters, exercises, onReload }) {
       </div>
       <div>
         {events.map(ev => (
-          <div key={ev.kind + ev.id} className="event-item">
-            <span className="event-time">{formatTimeLocal(ev.occurred_at)}</span>
-            <div className="event-body">
-              <EventBody ev={ev} />
+          <div key={ev.kind + ev.id}>
+            <div className="event-item">
+              <span className="event-time">{formatTimeLocal(ev.occurred_at)}</span>
+              <div className="event-body">
+                <EventBody ev={ev} />
+              </div>
+              <div className="event-actions">
+                <button
+                  className="event-edit"
+                  onClick={() => setEditing(isEditing(ev.kind, ev.id) ? null : { kind: ev.kind, id: ev.id })}
+                  aria-label="Edit"
+                >✎</button>
+                <button
+                  className="event-delete"
+                  onClick={() => deleteEvent(ev.kind, ev.id)}
+                  aria-label="Delete"
+                >×</button>
+              </div>
             </div>
-            <button className="event-delete" onClick={() => deleteEvent(ev.kind, ev.id)} aria-label="Delete">×</button>
+            {isEditing(ev.kind, ev.id) && (
+              <EditEvent
+                ev={ev}
+                onDone={() => { setEditing(null); onReload() }}
+                onCancel={() => setEditing(null)}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -814,6 +837,167 @@ const eventTagStyle = `
   .tag-water    { background: #d9e6ee; color: #3d5e72; }
   .tag-exercise { background: #dfe5d6; color: #4f6238; }
 `
+
+// ============ EDIT EVENT ============
+function EditEvent({ ev, onDone, onCancel }) {
+  const table = {
+    symptom: 'symptom_events', food: 'food_events', mood: 'mood_events',
+    water: 'water_events', exercise: 'exercise_events',
+  }[ev.kind]
+
+  const [time, setTime] = useState(ev.occurred_at)
+  const [notes, setNotes] = useState(ev.notes || '')
+  const [saving, setSaving] = useState(false)
+
+  // Kind-specific fields
+  const [symptom, setSymptom] = useState(ev.symptom || null)
+  const [severity, setSeverity] = useState(ev.severity || 3)
+  const [category, setCategory] = useState(ev.category || null)
+  const [item, setItem] = useState(ev.item || null)
+  const [mood, setMood] = useState(ev.mood || null)
+  const [amount, setAmount] = useState(ev.amount_oz || 8)
+  const [exerciseType, setExerciseType] = useState(ev.exercise_type || null)
+  const [duration, setDuration] = useState(ev.duration_minutes || 30)
+
+  const save = async () => {
+    setSaving(true)
+    let patch = { occurred_at: time, notes: notes || null }
+    if (ev.kind === 'symptom') patch = { ...patch, symptom, severity }
+    if (ev.kind === 'food')    patch = { ...patch, category, item }
+    if (ev.kind === 'mood')    patch = { ...patch, mood }
+    if (ev.kind === 'water')   patch = { occurred_at: time, amount_oz: amount }
+    if (ev.kind === 'exercise') patch = { ...patch, exercise_type: exerciseType, duration_minutes: duration }
+    const { error } = await supabase.from(table).update(patch).eq('id', ev.id)
+    if (error) { setSaving(false); alert(error.message); return }
+    onDone()
+  }
+
+  const catItems = FOOD_CATEGORIES.find(c => c.name === category)?.items || []
+
+  return (
+    <div className="edit-panel rise">
+      <div className="edit-panel-header">
+        <span className="edit-panel-title">Edit {ev.kind}</span>
+        <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+      </div>
+
+      {ev.kind === 'symptom' && (
+        <>
+          <label className="field-label">Symptom</label>
+          <div className="chip-group" style={{ marginBottom: 12 }}>
+            {SYMPTOMS.map(s => (
+              <button key={s} className={`chip chip-sm ${symptom === s ? 'chip-selected' : ''}`} onClick={() => setSymptom(s)}>{s}</button>
+            ))}
+          </div>
+          <label className="field-label">Severity</label>
+          <SeverityPicker value={severity} onChange={setSeverity} />
+        </>
+      )}
+
+      {ev.kind === 'food' && (
+        <>
+          <label className="field-label">Category</label>
+          <div className="chip-group" style={{ marginBottom: 12 }}>
+            {FOOD_CATEGORIES.map(c => (
+              <button key={c.name} className={`chip chip-sm ${category === c.name ? 'chip-selected' : ''}`} onClick={() => { setCategory(c.name); setItem(null) }}>{c.name}</button>
+            ))}
+          </div>
+          {catItems.length > 0 && (
+            <>
+              <label className="field-label">Item</label>
+              <div className="chip-group" style={{ marginBottom: 12 }}>
+                {catItems.map(i => (
+                  <button key={i} className={`chip chip-sm ${item === i ? 'chip-selected' : ''}`} onClick={() => setItem(i)}>{i}</button>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {ev.kind === 'mood' && (
+        <>
+          <label className="field-label">Mood</label>
+          <div className="chip-group" style={{ marginBottom: 12 }}>
+            {MOODS.map(m => (
+              <button key={m} className={`chip chip-sm ${mood === m ? 'chip-selected' : ''}`} onClick={() => setMood(m)}>{m}</button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {ev.kind === 'water' && (
+        <>
+          <label className="field-label">Amount (oz)</label>
+          <div className="chip-group" style={{ marginBottom: 12 }}>
+            {[4, 8, 12, 16, 20, 32].map(n => (
+              <button key={n} className={`chip chip-sm ${amount === n ? 'chip-selected' : ''}`} onClick={() => setAmount(n)}>{n} oz</button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {ev.kind === 'exercise' && (
+        <>
+          <label className="field-label">Type</label>
+          <div className="chip-group" style={{ marginBottom: 12 }}>
+            {EXERCISE_TYPES.map(t => (
+              <button key={t} className={`chip chip-sm ${exerciseType === t ? 'chip-selected' : ''}`} onClick={() => setExerciseType(t)}>{t}</button>
+            ))}
+          </div>
+          <label className="field-label">Duration (min)</label>
+          <div className="chip-group" style={{ marginBottom: 12 }}>
+            {[10, 20, 30, 45, 60, 90].map(d => (
+              <button key={d} className={`chip chip-sm ${duration === d ? 'chip-selected' : ''}`} onClick={() => setDuration(d)}>{d} min</button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {ev.kind !== 'water' && (
+        <>
+          <label className="field-label" style={{ marginTop: 4 }}>Notes</label>
+          <textarea className="textarea" rows={2} value={notes} onChange={e => setNotes(e.target.value)} style={{ marginBottom: 12 }} />
+        </>
+      )}
+
+      <label className="field-label">Time</label>
+      <TimePicker value={time} onChange={setTime} />
+
+      <button
+        className="btn btn-amber btn-full"
+        style={{ marginTop: 14 }}
+        onClick={save}
+        disabled={saving}
+      >
+        {saving ? 'Saving…' : 'Save changes'}
+      </button>
+
+      <style>{`
+        .edit-panel {
+          margin: 0 0 4px;
+          padding: 14px 16px 16px;
+          background: var(--amber-bg);
+          border: 1.5px solid var(--amber-soft);
+          border-radius: var(--radius-sm);
+        }
+        .edit-panel-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 14px;
+        }
+        .edit-panel-title {
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          color: var(--amber-deep);
+        }
+      `}</style>
+    </div>
+  )
+}
 
 function SeverityDots({ n }) {
   return (
