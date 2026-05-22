@@ -14,7 +14,7 @@ export const FOOD_CATEGORIES = [
   { name: 'Nuts / Seeds',          items: ['Almond', 'Cashew', 'Peanut', 'Pumpkin seeds', 'Sunflower seeds', 'Walnut'] },
   { name: 'Processed / Fast food', items: ['Canned food', 'Chips', 'Deli meat', 'Fast food', 'Frozen meal', 'Packaged snacks'] },
   { name: 'Red meat',              items: ['Beef', 'Lamb', 'Pork'] },
-  { name: 'Seafood',               items: ['Crab', 'Fish', 'Salmon', 'Shellfish', 'Shrimp', 'Tuna'] },
+  { name: 'White meat / Fish',   items: ['Chicken', 'Crab', 'Fish', 'Shellfish', 'Shrimp', 'Tuna', 'Turkey'] },
   { name: 'Soy',                   items: ['Edamame', 'Soy sauce', 'Tofu'] },
   { name: 'Spicy',                 items: ['Hot sauce', 'Peppers', 'Spicy dish'] },
   { name: 'Sugar / Sweets',        items: ['Baked goods', 'Candy', 'Chocolate', 'Dessert', 'Fruit juice', 'Honey', 'Maple syrup', 'Soda'] },
