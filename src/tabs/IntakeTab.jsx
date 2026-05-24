@@ -75,39 +75,14 @@ export default function IntakeTab({ periodStarts, onChange, refreshKey }) {
   return (
     <div className="intake-tab stack">
 
-      {/* DATE NAV */}
-      <div className="date-nav card">
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => setDate(shiftDate(date, -1))}
-          aria-label="Previous day"
-        >‹</button>
-        <div className="date-nav-center">
-          <input
-            type="date"
-            className="date-input"
-            value={date}
-            max={todayLocalISO()}
-            onChange={e => setDate(e.target.value)}
-          />
-          <div className="date-nav-label">{formatDateLong(date)}</div>
-          {activePhase && (
-            <span className="phase-pill" style={{ background: PHASES[activePhase].color }}>
-              {PHASES[activePhase].label}
-              {day?.cycle_phase_override && <span style={{ opacity: 0.7, marginLeft: 4 }}>·edited</span>}
-            </span>
-          )}
-        </div>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => {
-            const next = shiftDate(date, 1)
-            if (next <= todayLocalISO()) setDate(next)
-          }}
-          disabled={date >= todayLocalISO()}
-          aria-label="Next day"
-        >›</button>
-      </div>
+      {/* CYCLE SUMMARY HEADER — mini wheel + countdown + date nav */}
+      <CycleSummaryHeader
+        date={date}
+        setDate={setDate}
+        periodStarts={periodStarts}
+        activePhase={activePhase}
+        dayOverride={day?.cycle_phase_override}
+      />
 
       {loading ? (
         <div className="empty">Loading…</div>
@@ -169,23 +144,6 @@ export default function IntakeTab({ periodStarts, onChange, refreshKey }) {
           padding: 2px;
         }
         .date-input::-webkit-calendar-picker-indicator { opacity: 0.4; }
-        .date-nav-label {
-          font-family: var(--serif);
-          font-size: 18px;
-          color: var(--ink);
-          margin-top: 2px;
-        }
-        .phase-pill {
-          display: inline-block;
-          padding: 3px 10px;
-          border-radius: var(--radius-pill);
-          font-size: 11px;
-          color: white;
-          font-weight: 500;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          margin-top: 6px;
-        }
         .quick-add-row {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
@@ -232,7 +190,239 @@ function shiftDate(dateStr, days) {
   return `${y}-${m}-${day}`
 }
 
-// ============ FLOW CARD ============
+// ============ CYCLE SUMMARY HEADER ============
+// Mini wheel left, countdowns right, date nav below — shown at top of Log tab
+function CycleSummaryHeader({ date, setDate, periodStarts, activePhase, dayOverride }) {
+  const today = todayLocalISO()
+  const isToday = date === today
+
+  // Derive cycle info from period starts
+  const sorted = [...periodStarts].sort()
+  let cycleDay = null, cycleLen = 28, lastStart = null
+
+  if (sorted.length > 0) {
+    const dateObj = new Date(today + 'T00:00:00')
+    for (const s of sorted) {
+      const sd = new Date(s + 'T00:00:00')
+      if (sd <= dateObj) lastStart = s
+      else break
+    }
+    if (lastStart) {
+      cycleDay = Math.floor((dateObj - new Date(lastStart + 'T00:00:00')) / 86400_000) + 1
+    }
+    if (sorted.length >= 2) {
+      const gaps = []
+      for (let i = 1; i < sorted.length; i++) {
+        gaps.push(Math.round((new Date(sorted[i] + 'T00:00:00') - new Date(sorted[i-1] + 'T00:00:00')) / 86400_000))
+      }
+      const recent = gaps.slice(-3)
+      const avg = Math.round(recent.reduce((s, g) => s + g, 0) / recent.length)
+      if (avg >= 21 && avg <= 40) cycleLen = avg
+    }
+  }
+
+  const ovDay = 14
+  const daysToOv    = cycleDay != null && cycleDay < ovDay  ? ovDay - cycleDay : null
+  const daysSinceOv = cycleDay != null && cycleDay >= ovDay ? cycleDay - ovDay : null
+  const daysToPeriod = cycleDay != null ? Math.max(0, cycleLen - cycleDay + 1) : null
+  const progress = cycleDay != null ? Math.min((cycleDay - 1) / cycleLen, 1) : 0
+
+  // Mini wheel geometry
+  const SZ = 100, C = 50, RO = 46, RI = 30
+  const phaseSpans = [
+    { key: 'menstrual',  s: 1,  e: Math.min(5, cycleLen) },
+    { key: 'follicular', s: 6,  e: Math.min(13, cycleLen) },
+    { key: 'ovulation',  s: 14, e: Math.min(16, cycleLen) },
+    { key: 'luteal',     s: 17, e: cycleLen },
+  ].filter(p => p.s <= cycleLen && p.e >= p.s)
+
+  const wAngle = 360 / cycleLen
+  const startA = -90
+
+  function miniPolar(r, deg) {
+    const a = deg * Math.PI / 180
+    return { x: C + r * Math.cos(a), y: C + r * Math.sin(a) }
+  }
+  function miniArc(r1, r2, a0, a1) {
+    const p1 = miniPolar(r2, a0), p2 = miniPolar(r2, a1)
+    const p3 = miniPolar(r1, a1), p4 = miniPolar(r1, a0)
+    const lg = a1 - a0 > 180 ? 1 : 0
+    return `M${p1.x} ${p1.y} A${r2} ${r2} 0 ${lg} 1 ${p2.x} ${p2.y} L${p3.x} ${p3.y} A${r1} ${r1} 0 ${lg} 0 ${p4.x} ${p4.y}Z`
+  }
+
+  // Today dot position
+  const todayAngle = cycleDay != null ? startA + (cycleDay - 0.5) * wAngle : null
+  const todayDot = todayAngle != null ? miniPolar((RO + RI) / 2, todayAngle) : null
+
+  // Progress arc (inside the ring)
+  const RP = RI - 5
+  const progEnd = startA + progress * 360
+  function progressArcPath() {
+    if (progress <= 0) return null
+    if (progress >= 1) return null // full circle handled separately
+    const p1 = miniPolar(RP, startA)
+    const p2 = miniPolar(RP, progEnd)
+    const lg = progress > 0.5 ? 1 : 0
+    return `M${p1.x} ${p1.y} A${RP} ${RP} 0 ${lg} 1 ${p2.x} ${p2.y}`
+  }
+
+  return (
+    <div className="cycle-summary-header card">
+      {/* TOP ROW: mini wheel + countdowns */}
+      <div className="csh-top">
+        {/* Mini wheel */}
+        <svg width={SZ} height={SZ} viewBox={`0 0 ${SZ} ${SZ}`} className="csh-wheel" aria-hidden="true">
+          {/* Background ring */}
+          <circle cx={C} cy={C} r={(RO+RI)/2} fill="none" stroke="var(--line-soft)" strokeWidth={RO-RI} />
+          {/* Phase arcs */}
+          {phaseSpans.map(p => (
+            <path key={p.key} d={miniArc(RI, RO, startA + (p.s-1)*wAngle, startA + p.e*wAngle)}
+              fill={`var(--phase-${p.key})`} opacity="0.75" />
+          ))}
+          {/* Progress track */}
+          <circle cx={C} cy={C} r={RP} fill="none" stroke="var(--line)" strokeWidth="3" />
+          {/* Progress fill */}
+          {progress > 0 && progress < 1 && (
+            <path d={progressArcPath()} fill="none" stroke="var(--rose)" strokeWidth="3" strokeLinecap="round" />
+          )}
+          {progress >= 1 && (
+            <circle cx={C} cy={C} r={RP} fill="none" stroke="var(--rose)" strokeWidth="3" />
+          )}
+          {/* Today dot */}
+          {todayDot && (
+            <circle cx={todayDot.x} cy={todayDot.y} r="5" fill="var(--rose-deep)" stroke="var(--bg-elevated)" strokeWidth="1.5" />
+          )}
+          {/* Center: day of cycle */}
+          {cycleDay != null && (
+            <text x={C} y={C+5} textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--ink)" fontFamily="var(--sans)">
+              {cycleDay}
+            </text>
+          )}
+        </svg>
+
+        {/* Countdowns */}
+        <div className="csh-counts">
+          {daysToPeriod != null ? (
+            <>
+              <div className="csh-count-row">
+                <div className="csh-count-num" style={{ color: 'var(--rose-deep)' }}>
+                  {daysToPeriod}
+                </div>
+                <div className="csh-count-label">days to period</div>
+              </div>
+              <div className="csh-divider" />
+              <div className="csh-count-row">
+                <div className="csh-count-num" style={{ color: 'var(--moss)' }}>
+                  {daysToOv != null ? daysToOv : '—'}
+                </div>
+                <div className="csh-count-label">
+                  {daysToOv != null
+                    ? 'days to ovulation'
+                    : daysSinceOv === 0
+                      ? 'ovulation today'
+                      : `${daysSinceOv}d past ovulation`}
+                </div>
+              </div>
+              {activePhase && (
+                <span className="csh-phase-pill" style={{ background: `var(--phase-${activePhase})` }}>
+                  {PHASES[activePhase].label}
+                  {dayOverride && <span style={{ opacity: 0.7 }}> · edited</span>}
+                </span>
+              )}
+            </>
+          ) : (
+            <p className="csh-no-data">Add a period start date in Calendar to see your countdown.</p>
+          )}
+        </div>
+      </div>
+
+      {/* DATE NAV row */}
+      <div className="csh-date-nav">
+        <button className="btn btn-ghost btn-sm" onClick={() => setDate(shiftDate(date, -1))} aria-label="Previous day">‹</button>
+        <div className="csh-date-center">
+          <input
+            type="date"
+            className="date-input"
+            value={date}
+            max={today}
+            onChange={e => setDate(e.target.value)}
+          />
+          <div className="csh-date-label">{formatDateLong(date)}</div>
+        </div>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => { const n = shiftDate(date, 1); if (n <= today) setDate(n) }}
+          disabled={date >= today}
+          aria-label="Next day"
+        >›</button>
+      </div>
+
+      <style>{`
+        .cycle-summary-header { padding: 16px 16px 12px; }
+        .csh-top { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+        .csh-wheel { flex-shrink: 0; }
+        .csh-counts { flex: 1; min-width: 0; }
+        .csh-count-row { display: flex; align-items: baseline; gap: 8px; }
+        .csh-count-num {
+          font-family: var(--serif);
+          font-size: 32px;
+          font-weight: 400;
+          line-height: 1;
+        }
+        .csh-count-label {
+          font-size: 12px;
+          color: var(--ink-muted);
+          letter-spacing: 0.02em;
+        }
+        .csh-divider { height: 1px; background: var(--line-soft); margin: 8px 0; }
+        .csh-phase-pill {
+          display: inline-block;
+          margin-top: 8px;
+          padding: 3px 10px;
+          border-radius: var(--radius-pill);
+          font-size: 10px;
+          color: white;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+        .csh-no-data {
+          font-size: 12px;
+          color: var(--ink-muted);
+          font-style: italic;
+          margin: 0;
+          line-height: 1.5;
+        }
+        .csh-date-nav {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-top: 12px;
+          border-top: 1px solid var(--line-soft);
+          gap: 8px;
+        }
+        .csh-date-center { text-align: center; flex: 1; }
+        .date-input {
+          font-family: var(--serif);
+          font-size: 15px;
+          background: transparent;
+          border: none;
+          color: var(--ink-soft);
+          text-align: center;
+          width: 100%;
+          padding: 2px;
+        }
+        .date-input::-webkit-calendar-picker-indicator { opacity: 0.4; }
+        .csh-date-label {
+          font-family: var(--serif);
+          font-size: 19px;
+          color: var(--ink);
+          margin-top: 2px;
+        }
+      `}</style>
+    </div>
+  )
+}
 function FlowCard({ day, updateDay }) {
   const current = day?.flow || 'none'
   return (
