@@ -56,11 +56,11 @@ git push -u origin main
 3. **Settings → Environment Variables** → add both env vars from step 2 → Save
 4. Trigger a redeploy (Deployments → ⋯ → Redeploy)
 
-### 5. Connect ren.reilly.live
+### 5. Connect domain
 
-**In Vercel:** Project → Settings → Domains → add `ren.reilly.live`
+**In Vercel:** Project → Settings → Domains → add `domain`
 
-**In Namecheap:** Domain List → Manage `reilly.live` → Advanced DNS → add:
+**In Namecheap:** Domain List → Manage `domain` → Advanced DNS → add:
 - Type: **CNAME**, Host: `ren`, Value: `cname.vercel-dns.com`
 
 DNS propagates in 5–30 min. Vercel auto-issues SSL.
